@@ -93,4 +93,18 @@ public final class PageableUtils {
 
         return PageRequest.of(finalPageNumber, finalPageSize, Sort.by(direction, finalSortBy));
     }
+    /**
+     * Builds a {@link Pageable} using the {@link #DEFAULT_PAGE_SIZE} and the
+     * specified sort direction.
+     *
+     * @param pageNumber zero-based page index; negative values are clamped to {@code 0}
+     * @param sortBy     the entity property to sort by; if {@code null} or blank,
+     *                   defaults to {@code "createdAt"}
+     * @param direction  sort direction ({@link Sort.Direction#ASC} or {@link Sort.Direction#DESC})
+     * @return a validated {@link Pageable} sorted by {@code sortBy} in the specified direction
+     */
+    public static Pageable pageable(int pageNumber, String sortBy, Sort.Direction direction) {
+        return pageable(pageNumber, DEFAULT_PAGE_SIZE, sortBy, direction);
+    }
+
 }
