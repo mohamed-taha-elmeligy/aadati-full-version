@@ -10,7 +10,7 @@ import java.util.List;
 
 @NoArgsConstructor
 @Getter
-@Entity @Table(name = "habit_day_week" , indexes = @Index(name = "inx_habit_day_week",columnList = "day_of_week"))
+@Entity @Table(name = "habit_day_week")
 public class HabitDayWeek {
 
     @Id
