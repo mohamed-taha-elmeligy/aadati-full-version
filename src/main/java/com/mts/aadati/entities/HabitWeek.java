@@ -10,10 +10,11 @@ import java.util.UUID;
 
 @NoArgsConstructor
 @Getter
-@Entity @Table(name = "habit_week" , indexes = {
+@Entity @Table(name = "habit_week" ,
+        uniqueConstraints = @UniqueConstraint(columnNames = {"week_number","year_number"}),
+        indexes = {
         @Index(name = "idx_habit_week_year_week", columnList = "year_number, week_number"),
         @Index(name = "idx_habit_week_date_range", columnList = "start_week, end_week"),
-        @Index(name = "idx_habit_week_updated", columnList = "updated_at")
 })
 public class HabitWeek {
 
@@ -26,11 +27,11 @@ public class HabitWeek {
     @Setter
     private int weekNumber ;
 
-    @Column(name = "start_week",nullable = false )
+    @Column(name = "start_week",nullable = false, unique = true )
     @Setter
     private LocalDate startWeek ;
 
-    @Column(name = "end_week",nullable = false )
+    @Column(name = "end_week",nullable = false, unique = true)
     @Setter
     private LocalDate endWeek ;
 
@@ -38,8 +39,8 @@ public class HabitWeek {
     @Setter
     private int year ;
 
-    @Column(name = "updated_at" ,nullable = false)
-    private Instant updatedAt;
+    @Column(name = "created_at" ,nullable = false)
+    private Instant createdAt;
 
 
     // =====  Relationship =====
@@ -50,17 +51,16 @@ public class HabitWeek {
 
     // ===== Builder Constructor =====
     @Builder
-    public HabitWeek (int weekNumber ,@NonNull LocalDate startWeek ,@NonNull LocalDate endWeek ,int year ){
+    public HabitWeek (int weekNumber , @NonNull LocalDate startWeek , @NonNull LocalDate endWeek , int year, Instant createdAt){
         this.weekNumber = weekNumber ;
         this.startWeek = startWeek ;
         this.endWeek = endWeek ;
         this.year = year ;
     }
 
-    // ===== Lifecycle =====
-    @PreUpdate @PrePersist
-    private void updateGrade (){
-        updatedAt = Instant.now();
+    @PrePersist
+    private void onCreate() {
+        createdAt = Instant.now();
     }
 
 }
