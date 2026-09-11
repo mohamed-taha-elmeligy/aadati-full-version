@@ -12,7 +12,8 @@ public record HabitCategoryRequest (
         @Size(max = 800, message = "Description cannot exceed 800 characters")
         String description,
 
-        String color
+        String color,
+        boolean isDeleted
 ){
 }
 

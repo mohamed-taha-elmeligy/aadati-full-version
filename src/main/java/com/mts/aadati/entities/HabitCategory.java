@@ -28,9 +28,13 @@ public class HabitCategory extends Auditing {
     @Setter
     private String description;
 
-    @Column(name = "color", nullable = false, length = 7)
+    @Column(name = "color", nullable = false, unique = true ,length = 7)
     @Setter
     private String color;
+
+    @Column(name = "is_deleted")
+    @Setter
+    private boolean isDeleted = false;
 
     // =====  Relationship =====
     @OneToMany(mappedBy = "habitCategory" ,fetch = FetchType.LAZY ,

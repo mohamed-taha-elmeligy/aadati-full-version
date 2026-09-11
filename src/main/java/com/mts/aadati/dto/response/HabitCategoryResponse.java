@@ -12,7 +12,8 @@ public record HabitCategoryResponse (
         String description,
         String color,
         Instant updatedAt,
-        Instant createdAt
+        Instant createdAt,
+        boolean isDeleted
 ){
 }
 
