@@ -1,6 +1,5 @@
 package com.mts.aadati.dto.request;
 
-import com.mts.aadati.entities.HabitWeek;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.validation.constraints.NotNull;
