@@ -23,12 +23,8 @@ public class HabitDayWeek {
     @Setter
     private DayOfWeek dayOfWeek ;
 
-    // =====  Relationship =====
     @ManyToMany(mappedBy = "habitDayWeeks",fetch = FetchType.LAZY)
     private final List<Habit> habits =new ArrayList<>();
-
-
-    // ===== Builder Constructor =====
 
     @Builder
     public HabitDayWeek (@NonNull DayOfWeek dayOfWeek){
