@@ -15,6 +15,7 @@ import java.util.UUID;
         indexes = {
         @Index(name = "idx_habit_week_year_week", columnList = "year_number, week_number"),
         @Index(name = "idx_habit_week_date_range", columnList = "start_week, end_week"),
+        @Index(name = "idx_habit_week_created", columnList = "created_at")
 })
 public class HabitWeek {
 
@@ -43,15 +44,13 @@ public class HabitWeek {
     private Instant createdAt;
 
 
-    // =====  Relationship =====
     @OneToMany( fetch = FetchType.LAZY ,
             mappedBy = "habitWeek" ,cascade = {CascadeType.REFRESH ,CascadeType.DETACH ,CascadeType.MERGE,CascadeType.PERSIST})
     private final List<HabitCalendar> habitCalendars = new ArrayList<>() ;
 
 
-    // ===== Builder Constructor =====
     @Builder
-    public HabitWeek (int weekNumber , @NonNull LocalDate startWeek , @NonNull LocalDate endWeek , int year, Instant createdAt){
+    public HabitWeek (int weekNumber , @NonNull LocalDate startWeek , @NonNull LocalDate endWeek , int year){
         this.weekNumber = weekNumber ;
         this.startWeek = startWeek ;
         this.endWeek = endWeek ;
