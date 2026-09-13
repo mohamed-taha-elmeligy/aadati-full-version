@@ -11,7 +11,11 @@ import java.util.UUID;
 
 @NoArgsConstructor
 @Getter
-@Entity @Table(name = "habit_calendar" , indexes = {
+@Entity @Table(name = "habit_calendar" ,
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_habit_calendar_week_day", columnNames = {"week_id", "day_of_week"})
+        },
+        indexes = {
         @Index(name = "inx_habit_calendar_date", columnList = "date"),
         @Index(name = "inx_habit_calendar_day_of_week", columnList = "day_of_week"),
 })
@@ -28,7 +32,7 @@ public class HabitCalendar {
     @Setter
     private DayOfWeek dayOfWeek ;
 
-    @Column(name = "date" , nullable = false)
+    @Column(name = "date" , nullable = false, unique = true)
     @Setter
     private LocalDate date ;
 
