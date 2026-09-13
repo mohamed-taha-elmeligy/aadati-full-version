@@ -8,6 +8,7 @@ import com.mts.aadati.entities.TaskPriorityLevel;
 import com.mts.aadati.entities.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
 import java.util.List;
 
@@ -31,6 +32,15 @@ public interface HabitTaskMapper {
     );
 
     HabitTaskResponse toResponse(HabitTask habitTask);
+
+    @Mapping(target = "habitTaskId", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "taskCompletions", ignore = true)
+    @Mapping(target = "user", ignore = true)
+    @Mapping(target = "taskPriorityLevel", ignore = true)
+    @Mapping(target = "habitCategory", ignore = true)
+    void update(HabitTaskRequest request, @MappingTarget HabitTask habitTask);
 
     List<HabitTaskResponse> toResponseList(List<HabitTask> habitTasks);
 }
