@@ -62,7 +62,6 @@ public class HabitCalendar {
         this.habitWeek = habitWeek ;
     }
 
-    // ===== Lifecycle Callback ======
     @PrePersist
     @PreUpdate
     private void onCreate() {
