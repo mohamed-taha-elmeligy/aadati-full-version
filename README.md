@@ -68,7 +68,7 @@ See [`REFACTORING_LOG.md`](./REFACTORING_LOG.md) for the full reasoning behind e
 
 ```bash
 # Clone the repo
-git clone https://github.com/<your-username>/aadati-full-version.git
+git clone https://github.com/mohamed-taha-elmeligy/aadati-full-version.git
 cd aadati-full-version
 
 # Run with Maven
