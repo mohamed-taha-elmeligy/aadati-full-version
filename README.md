@@ -64,7 +64,7 @@ See [`REFACTORING_LOG.md`](./REFACTORING_LOG.md) for the full reasoning behind e
 
 ## Getting Started
 
-`[TBD — setup instructions once Docker/CI work is finished]`
+`[setup instructions once Docker/CI work is finished]`
 
 ```bash
 # Clone the repo
