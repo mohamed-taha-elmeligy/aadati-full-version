@@ -85,4 +85,4 @@ This project is under active refactoring. See [`Aadati-BACKLOG.md`](./Aadati-BAC
 
 ## License
 
-`[TBD]`
+This project is licensed under the MIT License — see the [LICENSE](./LICENSE) file for details.
