@@ -64,7 +64,7 @@ See [`REFACTORING_LOG.md`](./REFACTORING_LOG.md) for the full reasoning behind e
 
 ## Getting Started
 
-`[TBD — setup instructions once Docker/CI work is finished]`
+`[setup instructions once Docker/CI work is finished]`
 
 ```bash
 # Clone the repo
@@ -85,4 +85,4 @@ This project is under active refactoring. See [`Aadati-BACKLOG.md`](./Aadati-BAC
 
 ## License
 
-`[TBD]`
+This project is licensed under the MIT License — see the [LICENSE](./LICENSE) file for details.
