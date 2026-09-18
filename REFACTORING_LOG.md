@@ -286,3 +286,32 @@ This file documents every significant change made during refactoring: what the p
 * Update methods with uniqueness constraints (`User`, `Role`, `TaskPriorityLevel`) now correctly exclude the record being updated from their duplicate-check queries, fixing a class of bug where a user could not save an update without an unrelated field triggering a false "already exists" error.
 * This pass covered `UserService`, `RoleService`, `TaskPriorityLevelService`, `PercentageWeekService`, `PercentageDayService`, `TaskCompletionService`, `HabitWeekService`, and `HabitDayWeekService`.
 ---
+
+## [Introduce Redis for Business-Data Caching and JWT Token Revocation (Blocklist)]
+
+### **Problem:**
+
+* JWTs are stateless by design, which means there was no way to invalidate an access or refresh token before its natural expiration — a logged-out user's token remained fully valid until it expired on its own, and a leaked token could not be revoked at all.
+* Frequently-read, rarely-changing reference data (e.g. `HabitCategory`, `TaskPriorityLevel` listings) had no caching layer, meaning every request re-queried the database for data that changes infrequently.
+* The initial `RedisConnectionFactory` bean was created with `new LettuceConnectionFactory()` and no host/port/password configuration, meaning it silently always connected to `localhost:6379` regardless of what was set in `application.properties` or environment variables — a real deployment-breaking bug had it gone unnoticed until production.
+### **Decision:**
+
+* Introduce Redis as shared infrastructure for two distinct, separately-configured purposes, kept conceptually separate even though they run on the same Redis instance:
+  1. **General-purpose caching** (`CachingConfig`, `@EnableCaching` + `RedisCacheManager`) for read-heavy, rarely-changing business data via `@Cacheable`.
+  2. **JWT blocklist (denylist)** for token revocation — a logged-out token's `jti` is stored in Redis (via `RedisTemplate` directly, not through the `@Cacheable` abstraction) with a TTL matching the token's remaining lifetime, and `JwtAuthenticationFilter` checks this blocklist before accepting an otherwise-valid, unexpired token.
+* Fix `RedisConnectionFactory` to source its host/port/password from application configuration instead of hardcoding a no-argument `LettuceConnectionFactory`.
+* Do not treat the blocklist as "cached data" — it is a revocation-lookup mechanism with its own TTL semantics (tied to token expiry, not a fixed cache duration), so it is implemented against `RedisTemplate` directly rather than reusing the `@Cacheable`/`RedisCacheManager` path meant for business data.
+### **Why:**
+
+* Stateless JWTs have no built-in revocation mechanism by design; a server-side denylist checked at request time is a recognized mitigation for scenarios that require immediate invalidation (such as logout or a compromised token), without abandoning the stateless model for every token.
+  **Source:** [OWASP JSON Web Token Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_Cheat_Sheet.html)
+* `RedisCacheConfiguration`'s `entryTtl(Duration)` and `enableTimeToIdle()` are the framework-documented way to bound cache entry lifetime for the Spring Cache abstraction; `enableTimeToIdle()` specifically requires Redis 6.2.0+, which must be confirmed against whatever Redis version is used in deployment (e.g. a managed Redis add-on).
+  **Source:** [Spring Data Redis Reference — Redis Cache](https://docs.spring.io/spring-data-redis/reference/redis/redis-cache.html)
+* Hardcoding connection details in a `@Bean` method bypasses environment-based configuration entirely, which is the same class of problem already addressed for application secrets elsewhere in this project (config belongs in the environment, not hardcoded in source).
+### **Impact:**
+
+* Logout can now genuinely invalidate a token immediately (subject to the blocklist being checked on every authenticated request), rather than relying solely on the token's natural expiration window.
+* `RedisConnectionFactory` now respects `application.properties`/environment configuration for host, port, and password, fixing what would otherwise be a silent failure to connect to any non-local Redis instance in a deployed environment.
+* `CachingConfig` and the token blocklist mechanism remain independently configurable — clearing or resizing the business-data cache has no effect on token revocation behavior, and vice versa.
+* Before enabling `enableTimeToIdle()` in production, the deployed Redis version must be confirmed to be 6.2.0 or newer.
+---
