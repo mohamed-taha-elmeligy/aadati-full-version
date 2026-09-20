@@ -315,3 +315,33 @@ This file documents every significant change made during refactoring: what the p
 * `CachingConfig` and the token blocklist mechanism remain independently configurable — clearing or resizing the business-data cache has no effect on token revocation behavior, and vice versa.
 * Before enabling `enableTimeToIdle()` in production, the deployed Redis version must be confirmed to be 6.2.0 or newer.
 ---
+
+## [JWT Authentication Filter Refactor — Single Source of Truth for Authorities, Not Duplicated in Token Claims]
+
+### **Problem:**
+
+* `JwtUtils.generateAccessToken()` originally embedded the user's roles as a JWT claim, with the stated goal of avoiding a database lookup during request authentication (a common stateless-JWT optimization).
+* In practice, `JwtAuthenticationFilter` must call `UserDetailsService.loadUserByUsername()` regardless, in order to construct the `UserDetails` object required by `UsernamePasswordAuthenticationToken` — and that lookup already returns the user's current roles as part of the same query.
+* This meant the roles embedded in the JWT were redundant: the "avoid a database query" justification for storing them in the token did not hold, since the query happens anyway on every authenticated request.
+* Storing roles in the JWT also introduced a staleness risk: if an admin changed a user's role, the change would not take effect until the user's existing token expired and a new one was issued, since the filter would otherwise have preferred the (stale) claim data over the fresh database read.
+* Separately, `JwtAuthenticationFilter` read the token from a header named `"Authentication"` instead of the standard `"Authorization"` header, meaning no client sending a token in the conventional way would ever be authenticated.
+* Exceptions thrown while parsing an invalid or expired token (`InvalidCredentialsException`, raised from `JwtUtils.extractAllClaims()`) were not caught inside the filter, and since servlet filters run before Spring MVC's dispatcher, these exceptions would bypass `GlobalExceptionHandler` entirely and surface as an unhandled 500 error instead of the intended 401 response via `JwtAuthenticationEntryPoint`.
+### **Decision:**
+
+* Remove the `role` claim from JWT generation entirely. `JwtAuthenticationFilter` sources authorities exclusively from `UserDetailsService.loadUserByUsername()` (i.e. from the database, via `CustomUserDetailsService`), since that call is already unavoidable for constructing `UserDetails`.
+* JWT claims are limited to what cannot be cheaply re-derived on every request: subject (username), token type (`access`/`refresh`), issued-at/expiration, and the `jti` used for blocklist lookups.
+* Fix the header name read by the filter to the standard `Authorization` header.
+* Wrap the token-parsing/validation logic inside `JwtAuthenticationFilter` in a try/catch for the custom JWT exceptions, allowing the filter chain to continue with no authentication set (rather than propagating the exception) when a token is malformed or expired — letting `JwtAuthenticationEntryPoint` handle the resulting 401 for any endpoint that actually requires authentication.
+### **Why:**
+
+* Storing data in a token specifically to avoid a database read only pays off if that read is actually avoided; here it wasn't, since `UserDetailsService` is called on every request regardless. Keeping a second, potentially stale copy of the same data (in the token) for no realized performance benefit is unnecessary duplication.
+* Deriving authorities from the database on every request, rather than from token claims, means a role change takes effect on the user's very next request rather than only after their current token expires — a meaningful correctness property for an admin-managed roles system.
+* Servlet filters execute before Spring MVC's `DispatcherServlet`, so exceptions thrown inside a filter are not visible to `@RestControllerAdvice`-based exception handling; they must be handled locally within the filter (or delegated explicitly to the configured `AuthenticationEntryPoint`/`AccessDeniedHandler`) to produce a consistent API response instead of a generic server error.
+### **Impact:**
+
+* JWT payloads are smaller and contain no data that can go stale relative to the database.
+* Role/permission changes made by an admin take effect immediately on the affected user's next request, without waiting for token expiration.
+* Requests with a valid `Authorization: Bearer <token>` header are now actually recognized by the filter (previously silently ignored due to the incorrect header name).
+* Malformed or expired tokens now result in the request proceeding as unauthenticated (and subsequently a clean 401 via `JwtAuthenticationEntryPoint` if the endpoint requires authentication) instead of an unhandled 500 error.
+* This trades a small, already-necessary database read per authenticated request for always-current authorization data — an explicit, deliberate choice given this project's scale, not a default assumed without considering the alternative.
+---
