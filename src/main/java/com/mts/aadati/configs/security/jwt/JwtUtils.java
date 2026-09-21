@@ -21,11 +21,11 @@ public class JwtUtils {
 
     private final JwtBlocklistService blocklistService;
 
-    @Value("${jwt.secret.key}")
+    @Value("${security.jwt.secret-key}")
     private String secretKey;
-    @Value("${jwt.expiration}")
+    @Value("${security.jwt.expiration}")
     private long expiration;
-    @Value("${jwt.refresh.expiration}")
+    @Value("${security.jwt.refresh-expiration}")
     private long refreshExpiration;
 
     private static final String TYPE = "type";
