@@ -2,6 +2,7 @@ package com.mts.aadati.exceptions;
 
 import com.mts.aadati.exceptions.exception.*;
 import jakarta.annotation.Nullable;
+import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -145,6 +146,19 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(MessagingException.class)
+    public ProblemDetail handleMessagingException(
+            MessagingException ex,
+            HttpServletRequest request) {
+
+        return problemDetailBuilder(
+                "Mail Sending Failed",
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Failed to send email",
+                request,
+                null
+        );
+    }
 
     private static ProblemDetail problemDetailBuilder(
             String title,
