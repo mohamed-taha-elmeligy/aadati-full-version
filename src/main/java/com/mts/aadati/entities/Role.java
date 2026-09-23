@@ -38,8 +38,8 @@ public class Role extends Auditing {
     @ManyToMany(mappedBy = "roles",fetch = FetchType.LAZY)
     private final List<User> users =new ArrayList<>();
 
-    // ===== Builder Constructor =====
-    @Builder public Role(@NonNull String name, String description) {
+    // ===== Constructor =====
+    public Role(@NonNull String name, String description) {
         this.name = name;
         this.description = description;
         this.isDeleted = false;

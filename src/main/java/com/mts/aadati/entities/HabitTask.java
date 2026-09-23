@@ -68,8 +68,7 @@ public class HabitTask extends Auditing {
     @JoinColumn(name = "habit_category_id" , nullable = false)
     private HabitCategory habitCategory ;
 
-    // ===== Builder Constructor =====
-    @Builder
+    // ===== Constructor =====
     public HabitTask(@NonNull String title,
                      String description,
                      boolean isActive,

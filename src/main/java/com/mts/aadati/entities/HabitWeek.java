@@ -48,8 +48,6 @@ public class HabitWeek {
             mappedBy = "habitWeek" ,cascade = {CascadeType.REFRESH ,CascadeType.DETACH ,CascadeType.MERGE,CascadeType.PERSIST})
     private final List<HabitCalendar> habitCalendars = new ArrayList<>() ;
 
-
-    @Builder
     public HabitWeek (int weekNumber , @NonNull LocalDate startWeek , @NonNull LocalDate endWeek , int year){
         this.weekNumber = weekNumber ;
         this.startWeek = startWeek ;

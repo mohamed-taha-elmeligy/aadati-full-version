@@ -3,6 +3,8 @@ package com.mts.aadati.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -37,8 +39,7 @@ public class TaskCompletion {
     @ManyToOne(fetch =FetchType.LAZY)
     private HabitTask habitTask ;
 
-    // ===== Builder Constructor ======
-    @Builder
+    // ===== Constructor ======
     public TaskCompletion (boolean complete ,@NonNull HabitCalendar habitCalendar ,@NonNull HabitTask habitTask){
         this.complete = complete;
         this.habitCalendar = habitCalendar ;
@@ -71,7 +72,7 @@ public class TaskCompletion {
         } else if (!this.complete) {
             this.completedAt = null;
         }
-        this.createdAt = LocalDate.now();
+        this.createdAt = LocalDate.now(Clock.systemDefaultZone());
     }
 
 }

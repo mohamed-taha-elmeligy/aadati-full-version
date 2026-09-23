@@ -54,8 +54,7 @@ public class HabitCalendar {
     @OneToMany(mappedBy = "habitCalendar", fetch = FetchType.LAZY)
     private final List<PercentageDay> percentageDays = new ArrayList<>();
 
-    // ===== Builder Constructor =====
-    @Builder
+    // ===== Constructor =====
     public HabitCalendar( @NonNull DayOfWeek dayOfWeek, @NonNull LocalDate date ,@NonNull HabitWeek habitWeek) {
         this.dayOfWeek = dayOfWeek;
         this.date = date;

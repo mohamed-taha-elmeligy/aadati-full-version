@@ -38,8 +38,7 @@ public class HabitCompletion {
     @ManyToOne(fetch = FetchType.LAZY)
     private Habit habit ;
 
-    // ===== Builder Constructor ======
-    @Builder
+    // ===== Constructor ======
     public HabitCompletion (boolean complete ,@NonNull HabitCalendar habitCalendar ,@NonNull Habit habit){
         this.complete = complete;
         this.habitCalendar = habitCalendar ;

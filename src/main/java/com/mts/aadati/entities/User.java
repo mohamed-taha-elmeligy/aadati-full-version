@@ -35,7 +35,7 @@ public class User extends Auditing {
     @Setter
     private String password ;
 
-    @Column(name = "email", nullable = false, unique = true, length = 254) // RFC standard
+    @Column(name = "email", nullable = false, unique = true, length = 254)
     @Setter
     private String email ;
 
@@ -60,7 +60,6 @@ public class User extends Auditing {
             inverseJoinColumns = @JoinColumn(name ="role_id",nullable = false ))
     private List<Role> roles = new ArrayList<>();
 
-    @Builder(access = AccessLevel.PUBLIC)
     public User(@NonNull String firstName, @NonNull String lastName, @NonNull String username,
                 @NonNull String password, @NonNull String email, boolean emailVerified) {
         this.firstName = firstName;

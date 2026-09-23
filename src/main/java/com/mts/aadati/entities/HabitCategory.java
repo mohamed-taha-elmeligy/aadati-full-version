@@ -45,8 +45,7 @@ public class HabitCategory extends Auditing {
             cascade = {CascadeType.DETACH, CascadeType.MERGE ,CascadeType.PERSIST ,CascadeType.REFRESH})
     private final List<HabitTask> habitTasks = new ArrayList<>() ;
 
-    // ===== Builder Constructor =====
-    @Builder
+    // ===== Constructor =====
     public HabitCategory(@NonNull String name, String description, String color) {
         this.name = name;
         this.description = description;

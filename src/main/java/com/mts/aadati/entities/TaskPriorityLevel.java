@@ -40,8 +40,7 @@ public class TaskPriorityLevel {
     private final List<HabitTask> habitTasks = new ArrayList<>();
 
 
-    // ===== Builder Constructor =====
-    @Builder
+    // ===== Constructor =====
     public TaskPriorityLevel(int priorityLevel ,@NonNull String name,@NonNull String color) {
         this.priorityLevel = priorityLevel;
         this.name = name;

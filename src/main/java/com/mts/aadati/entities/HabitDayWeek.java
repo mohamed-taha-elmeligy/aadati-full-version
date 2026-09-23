@@ -26,7 +26,6 @@ public class HabitDayWeek {
     @ManyToMany(mappedBy = "habitDayWeeks",fetch = FetchType.LAZY)
     private final List<Habit> habits =new ArrayList<>();
 
-    @Builder
     public HabitDayWeek (@NonNull DayOfWeek dayOfWeek){
         this.dayOfWeek = dayOfWeek ;
     }

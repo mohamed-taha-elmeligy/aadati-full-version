@@ -38,8 +38,7 @@ public class PercentageDay extends Auditing {
     @JoinColumn(name = "habit_calendar_id", nullable = false)
     private HabitCalendar habitCalendar;
 
-    // === Builder Constructor ===
-    @Builder
+    // === Constructor ===
     public PercentageDay(BigDecimal rate,
                          @NonNull HabitCalendar habitCalendar,
                          @NonNull User user) {

@@ -64,9 +64,7 @@ public class Habit extends Auditing {
             inverseJoinColumns = @JoinColumn(name ="day_week_id",nullable = false ))
     private final List<HabitDayWeek> habitDayWeeks = new ArrayList<>();
 
-    // ===== Builder Constructor =====
-
-    @Builder
+    // ===== Constructor =====
     public Habit(@NonNull String title,
                  double point, boolean type,
                  String description,

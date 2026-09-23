@@ -41,8 +41,7 @@ public class PercentageWeek extends Auditing {
     @JoinColumn(name = "habit_week_id", nullable = false)
     private HabitWeek habitWeek;
 
-    // === Builder Constructor ===
-    @Builder
+    // === Constructor ===
     public PercentageWeek(BigDecimal rate,
                          @NonNull HabitWeek habitWeek,
                          @NonNull User user) {
