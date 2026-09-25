@@ -12,8 +12,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -38,8 +36,7 @@ public class SecurityConfig {
     private String originPatterns ;
     @Value("${security.filter.cors.max-age}")
     private long maxAge;
-    @Value("${security.encryption.password.strength}")
-    private int hashingStrength;
+
 
     private static final String ROLE_ADMIN = "ADMIN";
     private static final String ROLE_USER = "USER";
@@ -72,11 +69,6 @@ public class SecurityConfig {
             AuthenticationConfiguration configuration) throws Exception{
 
         return configuration.getAuthenticationManager();
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(hashingStrength);
     }
 
     @Bean
