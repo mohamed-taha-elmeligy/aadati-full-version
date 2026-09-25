@@ -13,6 +13,6 @@ public record HabitWeekResponse (
         LocalDate startWeek,
         LocalDate endWeek,
         int year,
-        Instant updatedAt
+        Instant createdAt
 ){
 }

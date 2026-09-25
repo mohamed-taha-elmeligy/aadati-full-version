@@ -15,14 +15,21 @@ public interface HabitCalendarMapper {
 
     @Mapping(target = "habitWeek", source = "habitWeek")
     @Mapping(target = "habitCalendarId", ignore = true)
-    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "habitCompletions", ignore = true)
+    @Mapping(target = "taskCompletions", ignore = true)
+    @Mapping(target = "percentageDays", ignore = true)
     HabitCalendar toEntity(HabitCalendarRequest request, HabitWeek habitWeek);
 
+    @Mapping(target = "habitWeekId", source = "habitCalendar.habitWeek.weekId")
     HabitCalendarResponse toResponse(HabitCalendar habitCalendar);
 
     @Mapping(target = "habitWeek", ignore = true)
     @Mapping(target = "habitCalendarId", ignore = true)
-    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "habitCompletions", ignore = true)
+    @Mapping(target = "taskCompletions", ignore = true)
+    @Mapping(target = "percentageDays", ignore = true)
     void update(
             HabitCalendarRequest request,
             @MappingTarget HabitCalendar habitCalendar

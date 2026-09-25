@@ -13,6 +13,6 @@ public record HabitCalendarResponse (
         DayOfWeek dayOfWeek,
         LocalDate date,
         UUID habitWeekId,
-        Instant updatedAt
+        Instant createdAt
 ){
 }

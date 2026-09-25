@@ -21,6 +21,8 @@ public interface HabitCompletionMapper {
     @Mapping(target = "complete", source = "request.complete")
     HabitCompletion toEntity(HabitCompletionRequest request, Habit habit, HabitCalendar habitCalendar);
 
+    @Mapping(target = "habitId", source = "habitCompletion.habit.habitId")
+    @Mapping(target = "habitCalendarId", source = "habitCompletion.habitCalendar.habitCalendarId")
     HabitCompletionResponse toResponse(HabitCompletion habitCompletion);
 
     List<HabitCompletionResponse> toResponseList(List<HabitCompletion> habitCompletions);

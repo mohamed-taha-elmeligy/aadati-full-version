@@ -13,13 +13,16 @@ import java.util.List;
 public interface RoleMapper {
 
     @Mapping(target = "roleId", ignore = true)
-    @Mapping(target = "isDeleted", ignore = true)
+    @Mapping(target = "deleted", ignore = true)
+    @Mapping(target = "users",ignore = true)
     Role toEntity(RoleRequest request);
 
+    @Mapping(target = "isDeleted", source = "deleted")
     RoleResponse toResponse(Role role);
 
     @Mapping(target = "roleId", ignore = true)
-    @Mapping(target = "isDeleted", ignore = true)
+    @Mapping(target = "deleted", ignore = true)
+    @Mapping(target = "users",ignore = true)
     void update(
             RoleRequest request,
             @MappingTarget Role role

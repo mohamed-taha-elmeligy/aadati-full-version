@@ -62,10 +62,12 @@ public class HabitTask extends Auditing {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_priority_level_id" , nullable = false)
+    @Setter
     private TaskPriorityLevel taskPriorityLevel ;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "habit_category_id" , nullable = false)
+    @Setter
     private HabitCategory habitCategory ;
 
     // ===== Constructor =====

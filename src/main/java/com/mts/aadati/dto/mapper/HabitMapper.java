@@ -22,6 +22,8 @@ public interface HabitMapper {
     @Mapping(target = "habitDayWeeks", ignore = true)
     @Mapping(target = "user", source = "user")
     @Mapping(target = "habitCategory", source = "habitCategory")
+    @Mapping(target = "active", source = "request.isActive")
+    @Mapping(target = "description", source = "request.description")
     Habit toEntity(
             HabitRequest request,
             User user,
@@ -31,6 +33,7 @@ public interface HabitMapper {
     @Mapping(target = "userId", source = "user.userId")
     @Mapping(target = "habitCategoryId", source = "habitCategory.habitCategoryId")
     @Mapping(target = "habitDayWeekIds", source = "habitDayWeeks")
+    @Mapping(target = "isActive", source = "active")
     HabitResponse toResponse(Habit habit);
 
     @Mapping(target = "habitId", ignore = true)
@@ -40,6 +43,7 @@ public interface HabitMapper {
     @Mapping(target = "habitDayWeeks", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "habitCategory", ignore = true)
+    @Mapping(target = "active", source = "isActive")
     void update(
             HabitRequest request,
             @MappingTarget Habit habit

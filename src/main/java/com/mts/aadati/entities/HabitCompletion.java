@@ -32,10 +32,12 @@ public class HabitCompletion {
     // =====  Relationship =====
     @JoinColumn(name = "habit_calendar_id" , nullable = false)
     @ManyToOne( fetch = FetchType.LAZY )
+    @Setter
     private HabitCalendar habitCalendar ;
 
     @JoinColumn(name = "habit_id" ,nullable = false)
     @ManyToOne(fetch = FetchType.LAZY)
+    @Setter
     private Habit habit ;
 
     // ===== Constructor ======

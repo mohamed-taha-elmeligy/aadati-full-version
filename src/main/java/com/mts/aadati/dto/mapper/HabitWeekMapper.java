@@ -12,7 +12,7 @@ import java.util.List;
 public interface HabitWeekMapper {
 
     @Mapping(target = "weekId", ignore = true)
-    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "habitCalendars", ignore = true)
     HabitWeek toEntity(HabitWeekRequest request);
 

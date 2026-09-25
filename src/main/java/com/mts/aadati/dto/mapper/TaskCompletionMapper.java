@@ -21,6 +21,8 @@ public interface TaskCompletionMapper {
     @Mapping(target = "habitCalendar", source = "habitCalendar")
     TaskCompletion toEntity(TaskCompletionRequest request, HabitCalendar habitCalendar, HabitTask habitTask);
 
+    @Mapping(target = "habitTaskId", source = "taskCompletion.habitTask.habitTaskId")
+    @Mapping(target = "habitCalendarId", source = "taskCompletion.habitCalendar.habitCalendarId")
     TaskCompletionResponse toResponse(TaskCompletion taskCompletion);
 
     List<TaskCompletionResponse> toResponseList(List<TaskCompletion> taskCompletions);

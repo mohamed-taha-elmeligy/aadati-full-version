@@ -37,11 +37,12 @@ public class HabitCalendar {
     private LocalDate date ;
 
 
-    @Column(name = "updated_at" , nullable = false)
-    private Instant updatedAt;
+    @Column(name = "created_at" , nullable = false)
+    private Instant createdAt;
     // =====  Relationship =====
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "week_id" , nullable = false)
+    @Setter
     private HabitWeek habitWeek ;
 
 
@@ -64,6 +65,6 @@ public class HabitCalendar {
     @PrePersist
     @PreUpdate
     private void onCreate() {
-        updatedAt = Instant.now();
+        createdAt = Instant.now();
     }
 }

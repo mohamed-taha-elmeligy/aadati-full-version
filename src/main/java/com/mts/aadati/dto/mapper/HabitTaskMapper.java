@@ -19,11 +19,11 @@ public interface HabitTaskMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "taskCompletions", ignore = true)
-
     @Mapping(target = "user", source = "user")
     @Mapping(target = "taskPriorityLevel", source = "taskPriorityLevel")
     @Mapping(target = "habitCategory", source = "habitCategory")
-
+    @Mapping(target = "description", source = "request.description")
+    @Mapping(target = "active", source = "request.isActive")
     HabitTask toEntity(
             HabitTaskRequest request,
             User user,
@@ -31,6 +31,10 @@ public interface HabitTaskMapper {
             HabitCategory habitCategory
     );
 
+    @Mapping(target = "isActive", source = "active")
+    @Mapping(target = "userId", source = "habitTask.user.userId")
+    @Mapping(target = "taskPriorityLevelId", source = "habitTask.taskPriorityLevel.taskPriorityLevelId")
+    @Mapping(target = "habitCategoryId", source = "habitTask.habitCategory.habitCategoryId")
     HabitTaskResponse toResponse(HabitTask habitTask);
 
     @Mapping(target = "habitTaskId", ignore = true)
@@ -40,6 +44,7 @@ public interface HabitTaskMapper {
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "taskPriorityLevel", ignore = true)
     @Mapping(target = "habitCategory", ignore = true)
+    @Mapping(target = "active", source = "isActive")
     void update(HabitTaskRequest request, @MappingTarget HabitTask habitTask);
 
     List<HabitTaskResponse> toResponseList(List<HabitTask> habitTasks);

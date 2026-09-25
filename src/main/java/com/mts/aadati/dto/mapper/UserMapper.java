@@ -1,5 +1,6 @@
 package com.mts.aadati.dto.mapper;
 
+import com.mts.aadati.entities.Role;
 import com.mts.aadati.entities.User;
 import com.mts.aadati.dto.request.UserRequest;
 import com.mts.aadati.dto.response.UserResponse;
@@ -22,6 +23,7 @@ public interface UserMapper {
     @Mapping(target = "roles", ignore = true)
     User toEntity(UserRequest request);
 
+    @Mapping(target = "roles", ignore = true)
     UserResponse toResponse(User user);
 
     @Mapping(target = "userId", ignore = true)
@@ -37,5 +39,11 @@ public interface UserMapper {
 
 
     List<UserResponse> toResponseList(List<User> users);
+
+    default List<String> mapRoles(List<Role> roles) {
+        return roles.stream()
+                .map(Role::getName)
+                .toList();
+    }
 }
 
