@@ -75,11 +75,11 @@ public class TaskPriorityLevelService {
     }
 
     public List<TaskPriorityLevel> findPriorityLevelAsc(){
-        return repository.findAllOrderByPriorityLevelAsc();
+        return repository.findAllByOrderByPriorityLevelAsc();
     }
 
     public List<TaskPriorityLevel> findPriorityLevelDesc(){
-        return repository.findAllOrderByPriorityLevelDesc();
+        return repository.findAllByOrderByPriorityLevelDesc();
     }
 
     public List<String> getAllColor() {

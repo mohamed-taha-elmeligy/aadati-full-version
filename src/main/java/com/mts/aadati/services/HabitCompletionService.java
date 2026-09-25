@@ -70,7 +70,7 @@ public class HabitCompletionService {
         if (userId == null)
             throw new InvalidRequestException("User ID " + CAN_NOT_BE_NULL);
 
-        return repository.findByHabitCompletionIdAndHabitUser_UserId(completionId, userId)
+        return repository.findByHabitCompletionIdAndHabit_User_UserId(completionId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException(HABIT_COMPLETION_NOT_FOUND + "id"));
     }
 
@@ -80,7 +80,7 @@ public class HabitCompletionService {
         if (userId == null)
             throw new InvalidRequestException("User ID " + CAN_NOT_BE_NULL);
 
-        return repository.findByHabitAndHabitUser_UserId(
+        return repository.findByHabitAndHabit_User_UserId(
                 habit,
                 userId,
                 PageableUtils.pageable(
@@ -97,7 +97,7 @@ public class HabitCompletionService {
         if (userId == null)
             throw new InvalidRequestException("User ID " + CAN_NOT_BE_NULL);
 
-        return repository.findByHabitCalendarAndHabitUser_UserId(
+        return repository.findByHabitCalendarAndHabit_User_UserId(
                 habitCalendar,
                 userId,
                 PageableUtils.pageable(

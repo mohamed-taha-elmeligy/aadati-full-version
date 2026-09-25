@@ -13,8 +13,8 @@ import java.util.UUID;
 public interface TaskPriorityLevelRepository extends JpaRepository<TaskPriorityLevel, UUID> {
 
     Optional<TaskPriorityLevel> findByPriorityLevel(int priorityLevel);
-    List<TaskPriorityLevel> findAllOrderByPriorityLevelAsc();
-    List<TaskPriorityLevel> findAllOrderByPriorityLevelDesc();
+    List<TaskPriorityLevel> findAllByOrderByPriorityLevelAsc();
+    List<TaskPriorityLevel> findAllByOrderByPriorityLevelDesc();
     @Query("SELECT DISTINCT t.color FROM TaskPriorityLevel t")
     List<String> getAllColor();
 

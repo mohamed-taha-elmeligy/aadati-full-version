@@ -18,11 +18,11 @@ import java.util.UUID;
 @Repository
 public interface HabitCompletionRepository extends JpaRepository<HabitCompletion, UUID> {
 
-    Optional<HabitCompletion> findByHabitCompletionIdAndHabitUser_UserId(UUID id, UUID userId);
+    Optional<HabitCompletion> findByHabitCompletionIdAndHabit_User_UserId(UUID id, UUID userId);
 
-    Page<HabitCompletion> findByHabitAndHabitUser_UserId(Habit habit, UUID userId, Pageable pageable);
+    Page<HabitCompletion> findByHabitAndHabit_User_UserId(Habit habit, UUID userId, Pageable pageable);
 
-    Page<HabitCompletion> findByHabitCalendarAndHabitUser_UserId(
+    Page<HabitCompletion> findByHabitCalendarAndHabit_User_UserId(
             HabitCalendar habitCalendar,
             UUID userId,
             Pageable pageable

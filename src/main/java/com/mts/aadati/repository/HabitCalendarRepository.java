@@ -39,7 +39,7 @@ public interface HabitCalendarRepository extends JpaRepository<HabitCalendar, UU
     @Query("""
     SELECT COUNT(DISTINCT h) FROM HabitCalendar h
     JOIN h.taskCompletions tc
-    JOIN tc.task tk
+    JOIN tc.habitTask tk
     WHERE h.habitWeek.weekId = :weekId
       AND tk.user.userId = :userId
       AND tc.complete = true
