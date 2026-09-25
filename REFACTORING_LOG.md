@@ -148,8 +148,6 @@ This file documents every significant change made during refactoring: what the p
 
 ---
 
----
-
 ## [Adopt Global Exception Handling with a Custom Exception Hierarchy and RFC 7807 Problem Details]
 
 ### **Problem:**
@@ -199,6 +197,7 @@ This file documents every significant change made during refactoring: what the p
 * Adding a rate-limiting exception type is deferred until rate limiting is actually implemented, avoiding speculative/unused exception classes.
 
 ---
+
 ## [Repository Layer Refactoring Pass — Query Correctness, Performance, and Access Control]
 
 ### **Problem:**
@@ -209,8 +208,9 @@ This file documents every significant change made during refactoring: what the p
 * Aggregate `COUNT()` queries were typed as `Long` (nullable wrapper) despite `COUNT()` never returning `null`, while some `AVG()` queries were correctly typed as `Double`/left un-typed as primitives inconsistently across repositories.
 * One dynamic filter query (`TaskPriorityLevelRepository.searchByPriorityLevelOrColor`) combined optional-filter conditions with `OR` instead of `AND`/correctly-negated `OR`, causing the query to return all rows whenever either parameter was `null` — a functional correctness bug, not just a style issue.
 * Several repository methods accepted a full `User` entity as a query parameter purely to filter by identity, requiring an unnecessary `User` lookup before the query could run, when the caller (typically the Security Context) already has the user's ID.
-* `UserRepository` exposed several methods that returned full personal data (email, first/last name) via partial-match search (`findByEmailContainingIgnoreCase`, etc.) or Unpaginated full-table scans (`findAllWithRoles`), allowing broader data exposure than any actual use case required — particularly relevant since some of these were intended for admin-facing statistics, not per-user data browsing.
-* One `HabitCalendarRepository` query attempted to `JOIN FETCH` two `@OneToMany` collections (`habitCompletions` and `taskCompletions`) in the same query for a `COUNT`, which would produce an incorrect (multiplied) count due to the cartesian product created by fetch-joining two to-many collections simultaneously.
+* `UserRepository` exposed several methods that returned full personal data (email, first/last name) via partial-match search (`findByEmailContainingIgnoreCase`, etc.) or unpaginated full-table scans (`findAllWithRoles`), allowing broader data exposure than any actual use case required — particularly relevant since some of these were intended for admin-facing statistics, not per-user data browsing.
+* One `HabitCalendarRepository` query attempted to `JOIN FETCH` two `@OneToMany` collections (`habitCompletions` and `taskCompletions`) in the same query for a `COUNT`, which would produce an incorrect (multiplied) count due to the Cartesian product created by fetch-joining two to-many collections simultaneously.
+
 ### **Decision:**
 
 * Standardize all partial-text search queries on `LOWER(field) LIKE LOWER(CONCAT('%', :param, '%'))` for case-insensitive, provider-safe partial matching; replace exact-value comparisons (e.g. enum values) that were incorrectly using `LIKE` with plain `=`.
@@ -221,14 +221,16 @@ This file documents every significant change made during refactoring: what the p
 * Standardize repository methods on accepting `UUID userId` instead of a full `User` entity wherever the query only needs to filter by identity, since the Security Context already exposes the authenticated user's ID directly — avoiding an unnecessary `User` lookup before every query call. Full `User` entities are still accepted where a query genuinely needs a `User`-specific field.
 * Remove or convert to aggregate-only form any `UserRepository` method that exposed raw personal data via partial-match search or an unbounded full-table read; retain only exact-identity lookups (`findByEmail`, `findByUsername`, `findById` inherited from `JpaRepository`) and count/aggregate-based statistics methods (`countUsersCreatedBetween`, `countUsersByRoleName`, etc.) for admin-facing use cases.
 * Split the double-`@OneToMany`-fetch `COUNT` query in `HabitCalendarRepository` into two separate single-collection queries (`countDaysWithCompletedHabitByWeek`, `countDaysWithCompletedTaskByWeek`), leaving the decision of how to combine the two counts to the service layer.
+
 ### **Why:**
 
-* Hibernates `MultipleBagFetchException` and the underlying cartesian-product problem occur specifically when more than one `@OneToMany`/`@ManyToMany` collection is fetch-joined in a single query; splitting into separate queries is the documented way to avoid both the exception and silently incorrect aggregate results.
+* Hibernate's `MultipleBagFetchException` and the underlying cartesian-product problem occur specifically when more than one `@OneToMany`/`@ManyToMany` collection is fetch-joined in a single query; splitting into separate queries is the documented way to avoid both the exception and silently incorrect aggregate results.
   **Source:** [Hibernate ORM User Guide — Fetching](https://docs.jboss.org/hibernate/orm/current/userguide/html_single/Hibernate_User_Guide.html#fetching)
 * The OWASP API Security Top 10 identifies "Excessive Data Exposure" and "Broken Object Level Authorization" as leading causes of API data breaches — returning more data than a given use case requires (e.g. full personal records via partial search, rather than an exact lookup or an aggregate count) is exactly the pattern this guidance warns against.
   **Source:** [OWASP API Security Project](https://owasp.org/www-project-api-security/)
 * `COUNT()` in JPQL/SQL is defined to always return a non-null numeric value (zero for an empty result set), while `AVG()` over an empty result set returns `NULL` by definition — the return type should reflect this distinction rather than defensively wrapping every aggregate in a nullable type.
 * Passing an entity's ID instead of the full entity where only identity comparison is needed avoids an unnecessary database round-trip and keeps the repository method's contract explicit about what data it actually requires — the ID is already available from the Security Context at the point these methods are called.
+
 ### **Impact:**
 
 * All partial-text search queries across the repository layer now use consistent, case-insensitive, provider-safe `LIKE` syntax.
@@ -240,6 +242,7 @@ This file documents every significant change made during refactoring: what the p
 * `UserRepository` no longer exposes partial-match search or unbounded full-table methods over personal data; admin-facing functionality is limited to exact-identity lookups and aggregate statistics (counts), consistent with the decision that administrative access should not include browsing individual users' personal data.
 * The `HabitCalendarRepository` weekly-completion count is now computed via two separate queries instead of one query with an incorrect double-collection fetch-join; combining the two values (if needed) is a service-layer responsibility.
 * This pass covered `HabitRepository`, `HabitTaskRepository`, `HabitCompletionRepository`, `HabitDayWeekRepository`, `HabitWeekRepository`, `HabitCalendarRepository`, `HabitCategoryRepository`, `PercentageDayRepository`, `PercentageWeekRepository`, `RoleRepository`, `TaskCompletionRepository`, `TaskPriorityLevelRepository`, and `UserRepository`.
+
 ---
 
 ## [Service Layer Refactoring Pass — Consistency, Correctness, and Layering Discipline]
@@ -250,11 +253,12 @@ This file documents every significant change made during refactoring: what the p
 * Several services duplicated resource-lookup logic (`existsById` followed by a separate query) instead of a single centralized `getXOrThrow(id)` helper, resulting in extra round-trips and repeated `orElseThrow` boilerplate across methods.
 * Some services returned `NullPointerException`-prone types: an aggregate query capable of returning `NULL` (`AVG()` over an empty result set) was declared as a primitive `double` return type in one service, guaranteeing an NPE via auto-unboxing whenever a user had no matching records.
 * Update methods in several services duplicated validation logic that already existed inside the entity itself (e.g. re-checking a rate is between 0 and 100 in the service, when the entity's own domain method already enforces this) — a direct contradiction of the project's earlier decision to keep such invariants in a rich domain model.
-* One service caught a `ResourceNotFoundException`-equivalent internally (via a checked lookup failure) and silently returned an empty result instead of letting the error propagate — the same "swallow the error, return empty" anti-pattern previously identified and rejected in the SAS project's reactive controllers.
+* One service caught a `ResourceNotFoundException`-equivalent internally (via a checked lookup failure) and silently returned an empty result instead of letting the error propagate — the same "swallow the error, return empty" antipattern previously identified and rejected in the SAS project's reactive controllers.
 * Two `@Modifying` cleanup-job queries were copy-pasted from another entity's repository method without updating the entity name in the JPQL, meaning a scheduled cleanup job for one entity would have deleted rows from a completely different table.
 * One service's `@PrePersist`/`@PreUpdate` lifecycle method was misnamed relative to what it actually did, and was also mistakenly triggered on both create and update, causing a `createdAt` timestamp to be overwritten on every update — defeating the purpose of a creation timestamp.
 * Several services accepted a full parent entity (e.g. `User`, `PercentageDay`) as a method parameter purely to extract one or two fields from it, which is a different, undocumented convention from services that accepted only the specific field values needed — creating inconsistency in method signatures across the service layer.
 * Some duplicate-prevention checks in update methods failed to exclude the entity being updated from the uniqueness check, meaning a user could never update their own record without changing the unique field, since the record would always "conflict with itself."
+
 ### **Decision:**
 
 * Standardize every service on class-level `@Transactional(readOnly = true)` as the default, with individual write methods (create/update/delete) explicitly annotated `@Transactional` to override the default.
@@ -266,6 +270,7 @@ This file documents every significant change made during refactoring: what the p
 * Correct lifecycle callback naming and scope: timestamp-setting logic runs only in `@PrePersist` for creation timestamps, never in `@PreUpdate`, and method names describe what the method actually does.
 * Standardize on accepting only the specific parameter values a method needs (IDs, primitive values, or a request-shaped set of fields) rather than a full entity, except where a service explicitly mirrors another already-agreed service's established pattern for consistency within that pair of related entities (e.g. `PercentageWeekService`/`PercentageDayService` deliberately accepting a full entity for create/update, matching each other).
 * For update methods with a uniqueness constraint, use the "exclude self" repository query pattern (`existsByFieldAndIdNot`) so a record's own unchanged field never triggers a false-positive duplicate error against itself.
+
 ### **Why:**
 
 * Constructor injection (via `@RequiredArgsConstructor` on `final` fields) is the community- and framework-recommended dependency injection style in Spring, since it guarantees a bean cannot be instantiated in an incomplete state and keeps dependencies explicit and testable.
@@ -275,6 +280,7 @@ This file documents every significant change made during refactoring: what the p
 * `COUNT()` is defined to always return a non-null numeric value, while `AVG()` over an empty result set returns `NULL` by definition — a service's return type should reflect this rather than risk an unboxing `NullPointerException` at an arbitrary call site.
 * Keeping domain invariants (like a valid rate range) enforced exclusively inside the entity, rather than duplicated in every service method that touches it, was already established project-wide as part of the rich domain model direction — duplicating the check in the service reintroduces the exact inconsistency that decision was meant to prevent.
 * Swallowing an internal failure and returning an empty/default result silently corrupts the API's meaning from the caller's perspective (this was already identified as a critical defect pattern in the SAS reactive controllers) — the same reasoning applies identically in a blocking service method.
+
 ### **Impact:**
 
 * All services now follow a single, predictable transaction-annotation shape, making it obvious at a glance which methods perform writes.
@@ -285,6 +291,7 @@ This file documents every significant change made during refactoring: what the p
 * `HabitWeek`'s creation-timestamp lifecycle callback no longer overwrites `createdAt` on every update, and is renamed to describe its actual behavior.
 * Update methods with uniqueness constraints (`User`, `Role`, `TaskPriorityLevel`) now correctly exclude the record being updated from their duplicate-check queries, fixing a class of bug where a user could not save an update without an unrelated field triggering a false "already exists" error.
 * This pass covered `UserService`, `RoleService`, `TaskPriorityLevelService`, `PercentageWeekService`, `PercentageDayService`, `TaskCompletionService`, `HabitWeekService`, and `HabitDayWeekService`.
+
 ---
 
 ## [Introduce Redis for Business-Data Caching and JWT Token Revocation (Blocklist)]
@@ -294,6 +301,7 @@ This file documents every significant change made during refactoring: what the p
 * JWTs are stateless by design, which means there was no way to invalidate an access or refresh token before its natural expiration — a logged-out user's token remained fully valid until it expired on its own, and a leaked token could not be revoked at all.
 * Frequently-read, rarely-changing reference data (e.g. `HabitCategory`, `TaskPriorityLevel` listings) had no caching layer, meaning every request re-queried the database for data that changes infrequently.
 * The initial `RedisConnectionFactory` bean was created with `new LettuceConnectionFactory()` and no host/port/password configuration, meaning it silently always connected to `localhost:6379` regardless of what was set in `application.properties` or environment variables — a real deployment-breaking bug had it gone unnoticed until production.
+
 ### **Decision:**
 
 * Introduce Redis as shared infrastructure for two distinct, separately-configured purposes, kept conceptually separate even though they run on the same Redis instance:
@@ -301,6 +309,7 @@ This file documents every significant change made during refactoring: what the p
   2. **JWT blocklist (denylist)** for token revocation — a logged-out token's `jti` is stored in Redis (via `RedisTemplate` directly, not through the `@Cacheable` abstraction) with a TTL matching the token's remaining lifetime, and `JwtAuthenticationFilter` checks this blocklist before accepting an otherwise-valid, unexpired token.
 * Fix `RedisConnectionFactory` to source its host/port/password from application configuration instead of hardcoding a no-argument `LettuceConnectionFactory`.
 * Do not treat the blocklist as "cached data" — it is a revocation-lookup mechanism with its own TTL semantics (tied to token expiry, not a fixed cache duration), so it is implemented against `RedisTemplate` directly rather than reusing the `@Cacheable`/`RedisCacheManager` path meant for business data.
+
 ### **Why:**
 
 * Stateless JWTs have no built-in revocation mechanism by design; a server-side denylist checked at request time is a recognized mitigation for scenarios that require immediate invalidation (such as logout or a compromised token), without abandoning the stateless model for every token.
@@ -308,12 +317,14 @@ This file documents every significant change made during refactoring: what the p
 * `RedisCacheConfiguration`'s `entryTtl(Duration)` and `enableTimeToIdle()` are the framework-documented way to bound cache entry lifetime for the Spring Cache abstraction; `enableTimeToIdle()` specifically requires Redis 6.2.0+, which must be confirmed against whatever Redis version is used in deployment (e.g. a managed Redis add-on).
   **Source:** [Spring Data Redis Reference — Redis Cache](https://docs.spring.io/spring-data-redis/reference/redis/redis-cache.html)
 * Hardcoding connection details in a `@Bean` method bypasses environment-based configuration entirely, which is the same class of problem already addressed for application secrets elsewhere in this project (config belongs in the environment, not hardcoded in source).
+
 ### **Impact:**
 
 * Logout can now genuinely invalidate a token immediately (subject to the blocklist being checked on every authenticated request), rather than relying solely on the token's natural expiration window.
 * `RedisConnectionFactory` now respects `application.properties`/environment configuration for host, port, and password, fixing what would otherwise be a silent failure to connect to any non-local Redis instance in a deployed environment.
 * `CachingConfig` and the token blocklist mechanism remain independently configurable — clearing or resizing the business-data cache has no effect on token revocation behavior, and vice versa.
 * Before enabling `enableTimeToIdle()` in production, the deployed Redis version must be confirmed to be 6.2.0 or newer.
+
 ---
 
 ## [JWT Authentication Filter Refactor — Single Source of Truth for Authorities, Not Duplicated in Token Claims]
@@ -326,17 +337,20 @@ This file documents every significant change made during refactoring: what the p
 * Storing roles in the JWT also introduced a staleness risk: if an admin changed a user's role, the change would not take effect until the user's existing token expired and a new one was issued, since the filter would otherwise have preferred the (stale) claim data over the fresh database read.
 * Separately, `JwtAuthenticationFilter` read the token from a header named `"Authentication"` instead of the standard `"Authorization"` header, meaning no client sending a token in the conventional way would ever be authenticated.
 * Exceptions thrown while parsing an invalid or expired token (`InvalidCredentialsException`, raised from `JwtUtils.extractAllClaims()`) were not caught inside the filter, and since servlet filters run before Spring MVC's dispatcher, these exceptions would bypass `GlobalExceptionHandler` entirely and surface as an unhandled 500 error instead of the intended 401 response via `JwtAuthenticationEntryPoint`.
+
 ### **Decision:**
 
 * Remove the `role` claim from JWT generation entirely. `JwtAuthenticationFilter` sources authorities exclusively from `UserDetailsService.loadUserByUsername()` (i.e. from the database, via `CustomUserDetailsService`), since that call is already unavoidable for constructing `UserDetails`.
 * JWT claims are limited to what cannot be cheaply re-derived on every request: subject (username), token type (`access`/`refresh`), issued-at/expiration, and the `jti` used for blocklist lookups.
 * Fix the header name read by the filter to the standard `Authorization` header.
 * Wrap the token-parsing/validation logic inside `JwtAuthenticationFilter` in a try/catch for the custom JWT exceptions, allowing the filter chain to continue with no authentication set (rather than propagating the exception) when a token is malformed or expired — letting `JwtAuthenticationEntryPoint` handle the resulting 401 for any endpoint that actually requires authentication.
+
 ### **Why:**
 
 * Storing data in a token specifically to avoid a database read only pays off if that read is actually avoided; here it wasn't, since `UserDetailsService` is called on every request regardless. Keeping a second, potentially stale copy of the same data (in the token) for no realized performance benefit is unnecessary duplication.
 * Deriving authorities from the database on every request, rather than from token claims, means a role change takes effect on the user's very next request rather than only after their current token expires — a meaningful correctness property for an admin-managed roles system.
 * Servlet filters execute before Spring MVC's `DispatcherServlet`, so exceptions thrown inside a filter are not visible to `@RestControllerAdvice`-based exception handling; they must be handled locally within the filter (or delegated explicitly to the configured `AuthenticationEntryPoint`/`AccessDeniedHandler`) to produce a consistent API response instead of a generic server error.
+
 ### **Impact:**
 
 * JWT payloads are smaller and contain no data that can go stale relative to the database.
@@ -344,4 +358,76 @@ This file documents every significant change made during refactoring: what the p
 * Requests with a valid `Authorization: Bearer <token>` header are now actually recognized by the filter (previously silently ignored due to the incorrect header name).
 * Malformed or expired tokens now result in the request proceeding as unauthenticated (and subsequently a clean 401 via `JwtAuthenticationEntryPoint` if the endpoint requires authentication) instead of an unhandled 500 error.
 * This trades a small, already-necessary database read per authenticated request for always-current authorization data — an explicit, deliberate choice given this project's scale, not a default assumed without considering the alternative.
+
+---
+
+## [MapStruct Write Accessors — Field-Level `@Setter` for Structural Relationships vs. `ignore = true` for Rule-Guarded Fields]
+
+### **Problem:**
+
+* Compiling `HabitCalendarMapper`, `TaskCompletionMapper`, `HabitTaskMapper`, and `HabitCompletionMapper` failed with MapStruct errors of the form `Property "x" has no write accessor in Y`, for relationship fields: `HabitCalendar.habitWeek`, `TaskCompletion.habitTask`/`habitCalendar`, `HabitTask.taskPriorityLevel`/`habitCategory`, and `HabitCompletion.habit`/`habitCalendar`.
+* These errors surfaced from the mapper-based `update()` pattern already anticipated in `REFACTORING_BACKLOG.md` (`HabitTaskMapper.update(request, taskPriorityLevel, habitCategory, @MappingTarget habitTask)`): the service resolves each ID to its full entity and passes it into the mapper as a parameter, and MapStruct auto-matches that parameter to the target property of the same name/type — which requires a write accessor MapStruct can call, and none of the affected entities exposed one for these fields.
+* Two superficially equivalent fixes were on the table: add a blanket `@Setter` to unblock compilation, or mark every one of these mappings `@Mapping(target = "x", ignore = true)`. Neither is a real decision on its own — a blanket `@Setter` risks quietly reopening fields that intentionally have no public setter because a domain method (`updateRate()`, `markComplete()`/`markIncomplete()`) already enforces a business rule on them, while blanket `ignore = true` just defers the same "how does this field actually get written" question to the service without resolving it, and can silently mean a field that legitimately needs the mapper to set it, never gets set at all.
+
+### **Decision:**
+
+* Classify each relationship field involved in a mapper `update()` method by **whether the entity enforces an invariant when that field is reassigned**, not by whichever option happens to make the code compile:
+  * **Structural relationships with no reassignment invariant** — `HabitTask.taskPriorityLevel`, `HabitTask.habitCategory`, `HabitCalendar.habitWeek`, `TaskCompletion.habitTask`, `TaskCompletion.habitCalendar`, `HabitCompletion.habit`, `HabitCompletion.habitCalendar` — get a **field-level Lombok `@Setter`** (never a class-level `@Setter`/`@Data`). The service resolves the ID to the entity and passes it into the mapper's `update(request, resolvedEntity, @MappingTarget entity)` method, consistent with the existing layering rule that mappers receive service-resolved entities as parameters rather than looking them up themselves.
+  * **Fields with an entity-enforced business rule on reassignment** — `PercentageDay.rate` (guarded by `updateRate()`), `HabitCompletion.complete` (guarded by `markComplete()`/`markIncomplete()`) — stay setter-less. The mapper marks these `@Mapping(target = "x", ignore = true)`, and the service calls the entity's own domain method directly after the mapper runs the rest of the update.
+* Document the test to apply going forward: *does a named domain method on the entity enforce an invariant when this field changes?* If yes, no setter — ignore it in the mapper and call the domain method from the service. If no, add a field-level setter and let the mapper set it directly.
+
+### **Why:**
+
+* This directly extends the project's already-adopted rich domain model direction (`PercentageDay.updateRate()`, `HabitCompletion.markComplete()`/`markIncomplete()`): a field that already has a validating domain method must not gain a parallel, unvalidated `@Setter` path, since that setter would let any future caller bypass the entity's own invariant entirely — the same defect class the `PercentageDay.rate` setter removal was meant to close in the first place.
+* MapStruct's default mapping strategy resolves target properties via accessor methods and requires a visible setter (or an explicit strategy/expression) to write into a property from a source parameter — a property with no write accessor cannot be part of an automatic mapping, which is why the compile error appears specifically on relationship fields the mapper is trying to set from a resolved-entity parameter.
+  **Source:** [MapStruct Reference Guide — Mapping Object References / Bean Mapping](https://mapstruct.org/documentation/reference-guide/)
+* Structural relationship fields (`taskPriorityLevel`, `habitCategory`, `habitWeek`, `habitTask`, `habitCalendar`, `habit`) carry no validation logic of their own when reassigned — they are plain associations, not business-rule-guarded state — so exposing a narrow, field-level setter for exactly these fields does not reintroduce the anemic-model problem the project has been deliberately moving away from; it only exposes write access where no invariant exists to protect.
+
+### **Impact:**
+
+* `HabitCalendarMapper`, `TaskCompletionMapper`, `HabitTaskMapper`, and `HabitCompletionMapper` now compile: `HabitCalendar.habitWeek`, `TaskCompletion.habitTask`/`habitCalendar`, `HabitTask.taskPriorityLevel`/`habitCategory`, and `HabitCompletion.habit`/`habitCalendar` each receive a field-level `@Setter`, scoped to that field only.
+* `PercentageDay.rate` and `HabitCompletion.complete` remain setter-less; any mapper touching them uses `@Mapping(target = "rate"/"complete", ignore = true)`, with the service calling `updateRate()`/`markComplete()`/`markIncomplete()` explicitly — no regression on the rich domain model work already done for these fields.
+* `ENGINEERING_RULES.md` (Section 8: DTOs & Mapping) now documents this classification test explicitly, so future mapper `update()` methods on new relationship fields are resolved the same way instead of re-litigating "setter vs. ignore" per entity.
+* This pass covered `HabitCalendarMapper`, `TaskCompletionMapper`, `HabitTaskMapper`, and `HabitCompletionMapper`; any future entity with a `@ManyToOne`/`@OneToOne` relationship written through a mapper `update()` method should be classified using the same test before adding either a setter or an `ignore = true`.
+
+---
+
+## [Fix — AOP Service-Logging Aspect Could Break the Calls It Was Meant to Only Observe]
+
+### **Problem:**
+
+* The first draft of `AopLogging` (the single `@Aspect`/`@Around` advice adopted for cross-cutting service-layer logging, per the earlier AOP activation decision) resolved the current user for its log line by casting `SecurityContextHolder.getContext().getAuthentication().getPrincipal()` directly to `CustomUserDetails`, with no null check and no try/catch, executed *before* `joinPoint.proceed()` and outside any exception handling.
+* Any service call made with no authenticated `CustomUserDetails` in context — which includes `AuthenticationService.login()`/`register()` themselves (the whole point of those calls is that no one is authenticated yet), and any future `@Scheduled` job such as the planned `HabitCompletionCleanupScheduler` — would throw a `NullPointerException` or `ClassCastException` at that line. Because this happened *before* `proceed()` was reached, **the underlying service method never executed at all**: a logging concern was capable of taking down login, registration, and background jobs entirely.
+* The `@Pointcut` expression itself, `execution(* ..service.*.*(..)))`, had one extra trailing `)` — an unbalanced-parenthesis AspectJ expression that risks a pointcut parse failure at context startup — and used `..service` (singular), which would not match the project's actual `com.mts.aadati.services` (plural) package, meaning even a syntactically valid version of this pointcut would silently advise nothing.
+* The advice unconditionally logged raw method arguments and return values (`Arrays.toString(args)`, `result`) for every service call, with no exceptions for methods that take or return DTOs/entities containing plaintext passwords, JWTs, or other PII (`AuthenticationService.register`/`login` being the clearest case) — a direct CWE-532 (insertion of sensitive information into a log file) risk.
+* The aspect had no explicit `@Order` relative to the class-level `@Transactional` advice already present on every service, so nothing guaranteed it wrapped *outside* the transaction boundary — if it ended up wrapping inside instead, a successful "Exiting" log line could be written before a later commit-time failure, misrepresenting the actual outcome of the call.
+
+### **Decision:**
+
+* Rewrite `resolveCurrentUserId()` as a small, self-contained helper that never throws: it treats a missing/anonymous/non-`CustomUserDetails` principal as a normal, expected case (fallback value `"anonymous"`), not an error condition, and wraps its own body in a try/catch (fallback `"unknown"`) so no future change to this logic can propagate an exception into the advice itself.
+* Fix the pointcut to a syntactically valid, fully-qualified expression matching the real package: `execution(* com.mts.aadati.services.*.*(..))`.
+* Drop `args`/`result` from the logged output entirely. The advice now logs method signature, resolved user id, and timing only — enough for tracing without risking secrets in the log stream. Argument-level tracing, if ever genuinely needed, requires an explicit per-DTO allow-list/masking mechanism, not a blanket dump — this is deferred until an actual need appears (same "don't build it speculatively" test applied elsewhere in this project).
+* Add `@Order(Ordered.HIGHEST_PRECEDENCE)` to `AopLogging` so it deterministically wraps *outside* the `@Transactional` advice — the logged "Exiting"/"Exception" outcome now reflects the actual committed result, not just the raw method return before commit/rollback.
+* Pass the caught exception object itself (not just `e.getMessage()`) as the final SLF4J argument on the failure log line, so the stack trace is preserved for debugging.
+* Document all of the above as standing rules for this aspect (and any future cross-cutting aspect) in `ENGINEERING_RULES.md` (new Section 10: AOP — Cross-Cutting Logging), so the same class of mistake doesn't get reintroduced later.
+
+### **Why:**
+
+* A cross-cutting concern that is explicitly scoped to "logging only" (per the earlier AOP activation decision) must not be able to alter or block the business outcome of the call it wraps — the aspect throwing before `joinPoint.proceed()` is reached is a direct violation of that scope, regardless of intent.
+* The OWASP Logging Cheat Sheet explicitly warns against writing sensitive data (credentials, tokens, personal data) into application logs; unconditionally logging method arguments/return values on a pointcut that covers `AuthenticationService` violates this directly.
+  **Source:** [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)
+* Spring AOP advisor ordering between two aspects (a custom `@Aspect` and the framework's transactional advisor) is not guaranteed unless at least one declares an explicit `@Order`; relying on default/declaration order for something whose correctness depends on wrapping outside a transaction boundary is fragile and was made explicit instead.
+  **Source:** [Spring Framework Reference — Advice Ordering](https://docs.spring.io/spring-framework/reference/core/aop/ataspectj/advice.html#aop-ataspectj-advice-ordering)
+* AspectJ `execution(..)` pointcut expressions require balanced parentheses and an exact package match to compile/match at all; an unbalanced expression is a startup risk, and a mismatched package silently produces zero coverage with no error — both are worth verifying explicitly rather than assuming the pointcut "just works" once it compiles.
+  **Source:** [AspectJ Programming Guide — Pointcut Expressions](https://www.eclipse.org/aspectj/doc/released/progguide/semantics-pointcuts.html)
+
+### **Impact:**
+
+* `AopLogging` can no longer throw before the wrapped service method executes; unauthenticated/system-context calls (login, register, scheduled jobs) now log with a fallback user id (`"anonymous"`/`"unknown"`) instead of crashing.
+* The pointcut now matches the real `com.mts.aadati.services` package with valid syntax; service methods are actually being advised, where before they may not have been at all.
+* No method arguments or return values are logged by default anywhere in the application via this aspect, removing a live risk of plaintext credentials/tokens appearing in logs.
+* The aspect's logged outcome for every service call now reflects the true post-commit result, since it's guaranteed to wrap outside `@Transactional`.
+* Exception log lines now retain the full stack trace via SLF4J's throwable-argument convention, instead of just the exception's message string.
+* `ENGINEERING_RULES.md` gains a new Section 10 (AOP — Cross-Cutting Logging) codifying these constraints for any future aspect work, so the same review doesn't need to happen from scratch next time.
+
 ---
