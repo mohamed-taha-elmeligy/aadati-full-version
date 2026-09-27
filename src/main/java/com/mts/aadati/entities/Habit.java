@@ -1,5 +1,6 @@
 package com.mts.aadati.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.mts.aadati.configs.auditing.Auditing;
 import jakarta.persistence.*;
 import lombok.*;
@@ -44,6 +45,7 @@ public class Habit extends Auditing {
     private boolean isActive = true;
 
     // =====  Relationship =====
+    @JsonIgnore
     @OneToMany(mappedBy = "habit" , fetch = FetchType.LAZY , orphanRemoval = true , cascade = CascadeType.ALL)
     private final List<HabitCompletion> habitCompletions = new ArrayList<>();
 

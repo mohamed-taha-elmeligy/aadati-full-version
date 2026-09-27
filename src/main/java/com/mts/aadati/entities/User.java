@@ -1,5 +1,6 @@
 package com.mts.aadati.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.mts.aadati.configs.auditing.Auditing;
 import jakarta.persistence.*;
 import lombok.*;
@@ -33,6 +34,7 @@ public class User extends Auditing {
 
     @Column(name = "password", nullable = false, length = 200)
     @Setter
+    @JsonIgnore
     private String password ;
 
     @Column(name = "email", nullable = false, unique = true, length = 254)
@@ -44,12 +46,15 @@ public class User extends Auditing {
     private boolean emailVerified ;
 
     // ===== Relationship =====
+    @JsonIgnore
     @OneToMany(mappedBy = "user" ,fetch = FetchType.LAZY ,cascade = CascadeType.ALL )
     private final List<Habit> habits = new ArrayList<>() ;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "user" ,fetch = FetchType.LAZY ,cascade = CascadeType.ALL )
     private final List<HabitTask> habitTasks = new ArrayList<>() ;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private final List<PercentageDay> percentageDays = new ArrayList<>();
 

@@ -1,6 +1,7 @@
 
 package com.mts.aadati.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.DayOfWeek;
@@ -23,6 +24,7 @@ public class HabitDayWeek {
     @Setter
     private DayOfWeek dayOfWeek ;
 
+    @JsonIgnore
     @ManyToMany(mappedBy = "habitDayWeeks",fetch = FetchType.LAZY)
     private final List<Habit> habits =new ArrayList<>();
 

@@ -22,12 +22,12 @@ public class TaskCompletion {
 
     @Column(name = "complete", nullable = false)
     @Setter
-    private boolean complete ;
+    private boolean complete;
 
     @Column(name = "completed_at" )
     private Instant completedAt;
 
-    @Column(name = "created_at"  )
+    @Column(name = "created_at")
     private LocalDate createdAt;
 
     // =====  Relationship =====

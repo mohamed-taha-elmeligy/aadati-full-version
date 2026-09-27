@@ -1,5 +1,6 @@
 package com.mts.aadati.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.mts.aadati.configs.auditing.Auditing;
 import com.mts.aadati.enums.RecurrenceType;
 import jakarta.persistence.*;
@@ -52,6 +53,7 @@ public class HabitTask extends Auditing {
     private Instant startDate;
 
     // =====  Relationship =====
+    @JsonIgnore
     @OneToMany(mappedBy = "habitTask" , cascade = CascadeType.ALL ,orphanRemoval = true , fetch = FetchType.LAZY)
     private final List<TaskCompletion> taskCompletions = new ArrayList<>();
 

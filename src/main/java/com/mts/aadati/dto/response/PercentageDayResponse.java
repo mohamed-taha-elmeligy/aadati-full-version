@@ -10,10 +10,6 @@ import java.util.UUID;
 public record PercentageDayResponse(
         UUID percentageDayId,
         BigDecimal rate,
-        String rateAsPercentage,
-        boolean fullyCompleted,
-        boolean notStarted,
-        boolean partiallyCompleted,
         Instant createdAt,
         Instant updatedAt,
         UUID userId,

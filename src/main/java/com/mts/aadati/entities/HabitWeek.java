@@ -1,5 +1,6 @@
 package com.mts.aadati.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.Instant;
@@ -44,6 +45,7 @@ public class HabitWeek {
     private Instant createdAt;
 
 
+    @JsonIgnore
     @OneToMany( fetch = FetchType.LAZY ,
             mappedBy = "habitWeek" ,cascade = {CascadeType.REFRESH ,CascadeType.DETACH ,CascadeType.MERGE,CascadeType.PERSIST})
     private final List<HabitCalendar> habitCalendars = new ArrayList<>() ;

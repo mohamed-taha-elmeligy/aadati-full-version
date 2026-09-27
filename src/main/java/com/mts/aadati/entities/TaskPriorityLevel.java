@@ -1,5 +1,6 @@
 package com.mts.aadati.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -35,6 +36,7 @@ public class TaskPriorityLevel {
     private boolean isDeleted = false;
 
     // ===== Relationship =====
+    @JsonIgnore
     @OneToMany(mappedBy = "taskPriorityLevel" , fetch = FetchType.LAZY ,
             cascade = {CascadeType.DETACH ,CascadeType.MERGE ,CascadeType.PERSIST ,CascadeType.REFRESH} )
     private final List<HabitTask> habitTasks = new ArrayList<>();

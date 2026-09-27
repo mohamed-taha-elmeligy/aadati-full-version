@@ -1,5 +1,6 @@
 package com.mts.aadati.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.DayOfWeek;
@@ -46,12 +47,15 @@ public class HabitCalendar {
     private HabitWeek habitWeek ;
 
 
+    @JsonIgnore
     @OneToMany(mappedBy = "habitCalendar" , fetch = FetchType.LAZY , cascade = CascadeType.ALL , orphanRemoval = true)
     private final List<HabitCompletion> habitCompletions = new ArrayList<>() ;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "habitCalendar" , fetch = FetchType.LAZY , cascade = CascadeType.ALL , orphanRemoval = true)
     private final List<TaskCompletion> taskCompletions = new ArrayList<>() ;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "habitCalendar", fetch = FetchType.LAZY)
     private final List<PercentageDay> percentageDays = new ArrayList<>();
 

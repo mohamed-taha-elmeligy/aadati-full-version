@@ -1,5 +1,6 @@
 package com.mts.aadati.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.mts.aadati.configs.auditing.Auditing;
 import jakarta.persistence.*;
 
@@ -22,7 +23,7 @@ public class Role extends Auditing {
 
     @Column(name = "name", length = 50, nullable = false , unique = true)
     @Setter
-    @NaturalId
+    @NaturalId(mutable = true)
     private String name;
 
     @Column(name = "description", length = 1000)
@@ -33,8 +34,8 @@ public class Role extends Auditing {
     @Setter
     private boolean isDeleted;
 
-
     // ===== RelationShip =====
+    @JsonIgnore
     @ManyToMany(mappedBy = "roles",fetch = FetchType.LAZY)
     private final List<User> users =new ArrayList<>();
 
