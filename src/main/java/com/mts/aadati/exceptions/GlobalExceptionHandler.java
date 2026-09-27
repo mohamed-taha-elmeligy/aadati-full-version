@@ -4,6 +4,7 @@ import com.mts.aadati.exceptions.exception.*;
 import jakarta.annotation.Nullable;
 import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -16,6 +17,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(OperationFailedException.class)
@@ -23,6 +25,7 @@ public class GlobalExceptionHandler {
             OperationFailedException ex,
             HttpServletRequest request
     ) {
+        log.error("Operation failed: {}", ex.getMessage(), ex);
         return problemDetailBuilder(
                 "Operation Failed",
                 HttpStatus.INTERNAL_SERVER_ERROR,
@@ -37,6 +40,7 @@ public class GlobalExceptionHandler {
             InvalidCredentialsException ex,
             HttpServletRequest request
     ) {
+        log.warn("Invalid Credentials: {}", ex.getMessage(), ex);
         return problemDetailBuilder(
                 "Invalid Credentials",
                 HttpStatus.UNAUTHORIZED,
@@ -51,6 +55,7 @@ public class GlobalExceptionHandler {
             BusinessRuleViolationException ex,
             HttpServletRequest request
     ) {
+        log.debug("Business Rule Violation: {}", ex.getMessage(), ex);
         return problemDetailBuilder(
                 "Business Rule Violation",
                 HttpStatus.UNPROCESSABLE_ENTITY,
@@ -65,6 +70,7 @@ public class GlobalExceptionHandler {
             InvalidRequestException ex,
             HttpServletRequest request
     ) {
+        log.debug("Invalid Request: {}", ex.getMessage(), ex);
         return problemDetailBuilder(
                 "Invalid Request",
                 HttpStatus.BAD_REQUEST,
@@ -79,6 +85,7 @@ public class GlobalExceptionHandler {
             DuplicateResourceException ex,
             HttpServletRequest request
     ) {
+        log.debug("Duplicate Resource: {}", ex.getMessage(), ex);
         return problemDetailBuilder(
                 "Duplicate Resource",
                 HttpStatus.CONFLICT,
@@ -90,9 +97,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail dataIntegrityViolationException(
-            DuplicateResourceException ex,
+            DataIntegrityViolationException ex,
             HttpServletRequest request
     ) {
+        log.warn("Data Integrity Violation: {}", ex.getMessage(), ex);
         return problemDetailBuilder(
                 "Data Integrity Violation",
                 HttpStatus.CONFLICT,
@@ -107,6 +115,7 @@ public class GlobalExceptionHandler {
             ResourceNotFoundException ex,
             HttpServletRequest request
     ) {
+        log.debug("Resource Not Found: {}", ex.getMessage(), ex);
         return problemDetailBuilder(
                 "Resource Not Found",
                 HttpStatus.NOT_FOUND,
@@ -122,6 +131,7 @@ public class GlobalExceptionHandler {
             Exception ex,
             HttpServletRequest request
     ) {
+        log.error("Internal Server Error: {}", ex.getMessage(), ex);
         return problemDetailBuilder(
                 "Internal Server Error",
                 HttpStatus.INTERNAL_SERVER_ERROR,
@@ -133,9 +143,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProblemDetail handleValidationException(MethodArgumentNotValidException ex, HttpServletRequest request) {
+        log.debug("Validation Failed: {}", ex.getMessage(), ex);
+
         Map<String, String> fieldErrors = new HashMap<>();
         ex.getBindingResult().getFieldErrors()
                 .forEach(err -> fieldErrors.put(err.getField(), err.getDefaultMessage()));
+
 
         return problemDetailBuilder(
                 "Validation Failed",
@@ -150,6 +163,7 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleMessagingException(
             MessagingException ex,
             HttpServletRequest request) {
+        log.error("Mail Sending Failed: {}", ex.getMessage(), ex);
 
         return problemDetailBuilder(
                 "Mail Sending Failed",
