@@ -23,7 +23,7 @@ public class CachingConfig implements CachingConfigurer {
 
     @Bean
     public RedisCacheManager redisCacheManager(RedisConnectionFactory connectionFactory){
-        RedisCacheConfiguration cacheConfiguration = RedisCacheConfiguration
+        RedisCacheConfiguration cacheConfig = RedisCacheConfiguration
                 .defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(5))
                 .disableCachingNullValues()
@@ -41,11 +41,29 @@ public class CachingConfig implements CachingConfigurer {
                 )
                 .prefixCacheNameWith("aadati::");
 
-        return RedisCacheManager
+        RedisCacheManager.RedisCacheManagerBuilder builder = RedisCacheManager
                 .builder(connectionFactory)
-                .cacheDefaults(cacheConfiguration)
+                .cacheDefaults(cacheConfig)
                 .transactionAware()
-                .build();
+                ;
+        for (CacheTtl cache: CacheTtl.values()){
+            builder.withCacheConfiguration(
+                            cache.getBaseName(),
+                            cacheConfig.entryTtl(cache.getItemTtl())
+                    )
+                    .withCacheConfiguration(
+                            cache.getBaseName() + CacheNames.LIST_SUFFIX,
+                            cacheConfig.entryTtl(cache.getListTtl())
+                    )
+                    .withCacheConfiguration(
+                            cache.getBaseName() + CacheNames.PAGE_SUFFIX,
+                            cacheConfig.entryTtl(cache.getPageTtl())
+                    );
+        }
+
+        log.info("Registered {} caches ({} entities x 3 variants)",
+                CacheTtl.values().length * 3, CacheTtl.values().length);
+        return builder.build();
     }
 
     @Override
@@ -64,7 +82,12 @@ public class CachingConfig implements CachingConfigurer {
                                             @NonNull Cache cache,
                                             @NonNull Object key,
                                             Object value) {
-                log.warn("Cache PUT failed on '{}'", cache.getName(), exception);
+                log.warn(
+                        "Cache PUT failed on '{}': {}",
+                        cache.getName(),
+                        exception.getMessage()
+                );
+                log.debug("Cache PUT failure details", exception);
             }
 
             @Override
