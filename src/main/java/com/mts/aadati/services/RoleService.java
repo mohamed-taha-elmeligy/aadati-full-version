@@ -1,5 +1,6 @@
 package com.mts.aadati.services;
 
+import com.mts.aadati.configs.caching.CacheNames;
 import com.mts.aadati.dto.mapper.RoleMapper;
 import com.mts.aadati.dto.request.RoleRequest;
 import com.mts.aadati.entities.Role;
@@ -8,6 +9,7 @@ import com.mts.aadati.exceptions.exception.InvalidRequestException;
 import com.mts.aadati.exceptions.exception.ResourceNotFoundException;
 import com.mts.aadati.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -18,6 +20,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@CacheConfig(cacheNames = CacheNames.ROLE)
 public class RoleService {
 
     private static final String ROLE_ALREADY_EXISTS = "Role already exists";
@@ -28,6 +31,10 @@ public class RoleService {
     private final RoleMapper mapper;
 
     @Transactional
+    @CacheEvict(
+            value = CacheNames.ROLE + CacheNames.LIST_SUFFIX ,
+            allEntries = true
+    )
     public Role addRole(Role role){
         if (repository.existsByName(role.getName()))
             throw new DuplicateResourceException(ROLE_ALREADY_EXISTS);
@@ -36,6 +43,16 @@ public class RoleService {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(
+                    value = CacheNames.ROLE,
+                    allEntries = true
+            ),
+            @CacheEvict(
+                    value = CacheNames.ROLE + CacheNames.LIST_SUFFIX,
+                    allEntries = true
+            )
+    })
     public Role updateRole(UUID roleId, RoleRequest request){
         Role role = getRoleOrThrow(roleId);
 
@@ -48,6 +65,16 @@ public class RoleService {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(
+                    value = CacheNames.ROLE,
+                    allEntries = true
+            ),
+            @CacheEvict(
+                    value = CacheNames.ROLE + CacheNames.LIST_SUFFIX,
+                    allEntries = true
+            )
+    })
     public Role toggleDeleted(UUID roleId){
         Role role = getRoleOrThrow(roleId);
         role.setDeleted(!role.isDeleted());
@@ -55,6 +82,11 @@ public class RoleService {
         return repository.save(role);
     }
 
+    @Cacheable(
+            value = CacheNames.ROLE + CacheNames.LIST_SUFFIX,
+            key = "#root.methodName + ':' + #name",
+            sync = true
+    )
     public List<Role> searchByName(String name) {
         if (!StringUtils.hasText(name))
             throw new InvalidRequestException("Role name " + CAN_NOT_BE_NULL);
@@ -62,6 +94,10 @@ public class RoleService {
         return repository.findByNameContainingIgnoreCase(name);
     }
 
+    @Cacheable(
+            key = "#name",
+            sync = true
+    )
     public Role findByName(String name) {
         if (!StringUtils.hasText(name))
             throw new InvalidRequestException("Role name " + CAN_NOT_BE_NULL);
@@ -72,10 +108,20 @@ public class RoleService {
                 );
     }
 
+    @Cacheable(
+            value = CacheNames.ROLE + CacheNames.LIST_SUFFIX,
+            key = "#root.methodName",
+            sync = true
+    )
     public List<Role> findAllDeletedFalse() {
         return repository.findAllByIsDeletedFalse();
     }
 
+    @Cacheable(
+            value = CacheNames.ROLE + CacheNames.LIST_SUFFIX,
+            key = "#root.methodName",
+            sync = true
+    )
     public List<Role> findAllDeletedTrue() {
         return repository.findAllByIsDeletedTrue();
     }

@@ -1,5 +1,6 @@
 package com.mts.aadati.services;
 
+import com.mts.aadati.configs.caching.CacheNames;
 import com.mts.aadati.dto.mapper.HabitCategoryMapper;
 import com.mts.aadati.dto.request.HabitCategoryRequest;
 import com.mts.aadati.entities.HabitCategory;
@@ -8,6 +9,7 @@ import com.mts.aadati.exceptions.exception.InvalidRequestException;
 import com.mts.aadati.exceptions.exception.ResourceNotFoundException;
 import com.mts.aadati.repository.HabitCategoryRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -19,6 +21,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@CacheConfig(cacheNames = CacheNames.HABIT_CATEGORY + CacheNames.LIST_SUFFIX)
 public class HabitCategoryService {
 
     private static final String HABIT_CATEGORY_ALREADY_EXISTS = "HabitCategory already exists";
@@ -29,6 +32,7 @@ public class HabitCategoryService {
     private final HabitCategoryMapper mapper;
 
     @Transactional
+    @CacheEvict(allEntries = true)
     public HabitCategory addCategory(HabitCategory category) {
         if (repository.existsByName(category.getName()))
             throw new DuplicateResourceException(HABIT_CATEGORY_ALREADY_EXISTS + " with name");
@@ -40,6 +44,12 @@ public class HabitCategoryService {
     }
 
     @Transactional
+    @Caching(
+            evict = {
+                    @CacheEvict(value = CacheNames.HABIT_CATEGORY, allEntries = true),
+                    @CacheEvict(allEntries = true)
+            }
+    )
     public HabitCategory updateCategory(UUID categoryId, HabitCategoryRequest request) {
         HabitCategory category = getCategoryOrThrow(categoryId);
 
@@ -55,6 +65,12 @@ public class HabitCategoryService {
     }
 
     @Transactional
+    @Caching(
+            evict = {
+                    @CacheEvict(value = CacheNames.HABIT_CATEGORY, allEntries = true),
+                    @CacheEvict(allEntries = true)
+            }
+    )
     public HabitCategory toggleDeleted(UUID categoryId) {
         HabitCategory category = getCategoryOrThrow(categoryId);
         category.setDeleted(!category.isDeleted());
@@ -62,6 +78,7 @@ public class HabitCategoryService {
         return repository.save(category);
     }
 
+    @Cacheable(key = "#name + '-' + #root.methodName", sync = true)
     public List<HabitCategory> searchByName(String name) {
         if (!StringUtils.hasText(name))
             throw new InvalidRequestException("Category name " + CAN_NOT_BE_NULL);
@@ -69,6 +86,7 @@ public class HabitCategoryService {
         return repository.findByNameContainingIgnoreCase(name);
     }
 
+    @Cacheable(value = CacheNames.HABIT_CATEGORY, key = "#name + '-' + #root.methodName", sync = true)
     public HabitCategory findByName(String name) {
         if (!StringUtils.hasText(name))
             throw new InvalidRequestException("Category name " + CAN_NOT_BE_NULL);
@@ -77,18 +95,22 @@ public class HabitCategoryService {
                 .orElseThrow(() -> new ResourceNotFoundException(HABIT_CATEGORY_NOT_FOUND + "name"));
     }
 
+    @Cacheable(key = "#root.methodName", sync = true)
     public List<HabitCategory> findAllOrderByNameAsc() {
         return repository.findAllByOrderByNameAsc();
     }
 
+    @Cacheable(key = "#root.methodName", sync = true)
     public List<HabitCategory> findAllOrderByCreatedAtDesc() {
         return repository.findAllByOrderByCreatedAtDesc();
     }
 
+    @Cacheable(key = "#root.methodName", sync = true)
     public List<HabitCategory> findAllOrderByUpdatedAtDesc() {
         return repository.findAllByOrderByUpdatedAtDesc();
     }
 
+    @Cacheable(key = "#start + '-' + #end + '-' + #root.methodName", sync = true)
     public List<HabitCategory> findByUpdatedAtBetween(Instant start, Instant end) {
         if (start == null || end == null)
             throw new InvalidRequestException("Start and end dates " + CAN_NOT_BE_NULL);
@@ -98,6 +120,7 @@ public class HabitCategoryService {
         return repository.findByUpdatedAtBetween(start, end);
     }
 
+    @Cacheable(key = "#start + '-' + #end + '-' + #root.methodName", sync = true)
     public List<HabitCategory> findByCreatedAtBetween(Instant start, Instant end) {
         if (start == null || end == null)
             throw new InvalidRequestException("Start and end dates " + CAN_NOT_BE_NULL);
@@ -107,6 +130,7 @@ public class HabitCategoryService {
         return repository.findByCreatedAtBetween(start, end);
     }
 
+    @Cacheable(key = "#name + '-' + #root.methodName", sync = true)
     public List<HabitCategory> searchActiveByName(String name) {
         if (!StringUtils.hasText(name))
             throw new InvalidRequestException("Category name " + CAN_NOT_BE_NULL);
@@ -114,6 +138,7 @@ public class HabitCategoryService {
         return repository.findByNameContainingIgnoreCaseAndIsDeletedFalse(name);
     }
 
+    @Cacheable(value = CacheNames.HABIT_CATEGORY, key = "#name + '-' + #root.methodName", sync = true)
     public HabitCategory findActiveByName(String name) {
         if (!StringUtils.hasText(name))
             throw new InvalidRequestException("Category name " + CAN_NOT_BE_NULL);
@@ -122,6 +147,7 @@ public class HabitCategoryService {
                 .orElseThrow(() -> new ResourceNotFoundException(HABIT_CATEGORY_NOT_FOUND + "name"));
     }
 
+    @Cacheable(key = "#root.methodName", sync = true)
     public List<HabitCategory> findAllActiveOrderByNameAsc() {
         return repository.findAllByIsDeletedFalseOrderByNameAsc();
     }

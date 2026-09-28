@@ -1,5 +1,7 @@
 package com.mts.aadati.services;
 
+import com.mts.aadati.configs.caching.CacheNames;
+import com.mts.aadati.dto.response.PageModel;
 import com.mts.aadati.entities.HabitCalendar;
 import com.mts.aadati.exceptions.exception.DuplicateResourceException;
 import com.mts.aadati.exceptions.exception.InvalidRequestException;
@@ -8,15 +10,12 @@ import com.mts.aadati.repository.HabitCalendarRepository;
 import com.mts.aadati.utils.pagination.PageableUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
+import org.springframework.cache.annotation.*;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.DayOfWeek;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
+import java.time.*;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,6 +23,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@CacheConfig(cacheNames = CacheNames.HABIT_CALENDAR + CacheNames.PAGE_SUFFIX)
 public class HabitCalendarService {
 
     private static final Sort.Direction SORT_DIRECTION = Sort.Direction.DESC;
@@ -35,6 +35,13 @@ public class HabitCalendarService {
     private final HabitCalendarRepository repository;
 
     @Transactional
+    @Caching(
+            evict = {
+                    @CacheEvict(value = CacheNames.HABIT_CALENDAR, allEntries = true),
+                    @CacheEvict(value = CacheNames.HABIT_CALENDAR + CacheNames.LIST_SUFFIX, allEntries = true),
+                    @CacheEvict(value = CacheNames.HABIT_CALENDAR + CacheNames.PAGE_SUFFIX, allEntries = true)
+            }
+    )
     public HabitCalendar addCalendar(HabitCalendar calendar) {
         if (repository.existsByDate(calendar.getDate()))
             throw new DuplicateResourceException(HABIT_CALENDAR_ALREADY_EXISTS + " with date");
@@ -47,13 +54,21 @@ public class HabitCalendarService {
     }
 
     @Transactional
+    @Caching(
+            evict = {
+                    @CacheEvict(value = CacheNames.HABIT_CALENDAR, allEntries = true),
+                    @CacheEvict(value = CacheNames.HABIT_CALENDAR + CacheNames.LIST_SUFFIX, allEntries = true),
+                    @CacheEvict(value = CacheNames.HABIT_CALENDAR + CacheNames.PAGE_SUFFIX, allEntries = true)
+            }
+    )
     public int cleanupOldCalendars() {
-        Instant cutoffDate = Instant.now().minus(20, ChronoUnit.YEARS);
+        Instant cutoffDate = ZonedDateTime.now(ZoneOffset.UTC).minusYears(20).toInstant();
         int deletedCount = repository.deleteAllByCreatedAtBefore(cutoffDate);
         log.info("Cleaned up {} HabitCalendar records created before {}", deletedCount, cutoffDate);
         return deletedCount;
     }
 
+    @Cacheable(value = CacheNames.HABIT_CALENDAR, key = "#date + '-' + #root.methodName", sync = true)
     public HabitCalendar findByDate(LocalDate date) {
         if (date == null)
             throw new InvalidRequestException("Date " + CAN_NOT_BE_NULL);
@@ -62,23 +77,27 @@ public class HabitCalendarService {
                 .orElseThrow(() -> new ResourceNotFoundException(HABIT_CALENDAR_NOT_FOUND + "date"));
     }
 
-    public Page<HabitCalendar> findByDateBetween(LocalDate start, LocalDate end, int pageNumber) {
+    @Cacheable(key = "#start + '-' + #end + '-' + #pageNumber + '-' + #root.methodName", sync = true)
+    public PageModel<HabitCalendar> findByDateBetween(LocalDate start, LocalDate end, int pageNumber) {
         if (start == null || end == null)
             throw new InvalidRequestException("Start and end dates " + CAN_NOT_BE_NULL);
         if (start.isAfter(end))
             throw new InvalidRequestException("Start date must be before end date");
 
-        return repository.findByDateBetweenOrderByDate(
-                start,
-                end,
-                PageableUtils.pageable(
-                        pageNumber,
-                        SORT_DATE,
-                        SORT_DIRECTION
+        return PageModel.from(
+                repository.findByDateBetweenOrderByDate(
+                        start,
+                        end,
+                        PageableUtils.pageable(
+                                pageNumber,
+                                SORT_DATE,
+                                SORT_DIRECTION
+                        )
                 )
         );
     }
 
+    @Cacheable(value = CacheNames.HABIT_CALENDAR + CacheNames.LIST_SUFFIX, key = "#weekId + '-' + #root.methodName", sync = true)
     public List<HabitCalendar> findByHabitWeek(UUID weekId) {
         if (weekId == null)
             throw new InvalidRequestException("Week Id " + CAN_NOT_BE_NULL);
@@ -86,6 +105,7 @@ public class HabitCalendarService {
         return repository.findByHabitWeek_WeekId(weekId);
     }
 
+    @Cacheable(value = CacheNames.HABIT_CALENDAR, key = "#weekId + '-' + #day + '-' + #root.methodName", sync = true)
     public HabitCalendar findByWeekAndDay(UUID weekId, DayOfWeek day) {
         if (weekId == null)
             throw new InvalidRequestException("Week Id " + CAN_NOT_BE_NULL);
@@ -114,6 +134,7 @@ public class HabitCalendarService {
         return repository.countDaysWithCompletedTaskByWeek(weekId, userId);
     }
 
+    @Cacheable(value = CacheNames.HABIT_CALENDAR, key = "#root.methodName", sync = true)
     public HabitCalendar findFirstByDate() {
         return repository.findFirstByOrderByDateDesc()
                 .orElseThrow(()-> new ResourceNotFoundException("No HabitCalendar records exist"));

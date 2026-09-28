@@ -1,7 +1,9 @@
 package com.mts.aadati.services;
 
+import com.mts.aadati.configs.caching.CacheNames;
 import com.mts.aadati.dto.mapper.HabitTaskMapper;
 import com.mts.aadati.dto.request.HabitTaskRequest;
+import com.mts.aadati.dto.response.PageModel;
 import com.mts.aadati.entities.HabitTask;
 import com.mts.aadati.enums.RecurrenceType;
 import com.mts.aadati.exceptions.exception.DuplicateResourceException;
@@ -10,7 +12,7 @@ import com.mts.aadati.exceptions.exception.ResourceNotFoundException;
 import com.mts.aadati.repository.HabitTaskRepository;
 import com.mts.aadati.utils.pagination.PageableUtils;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
+import org.springframework.cache.annotation.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -22,6 +24,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@CacheConfig(cacheNames = CacheNames.HABIT_TASK + CacheNames.PAGE_SUFFIX)
 public class HabitTaskService {
 
     private static final String SORT_BY = "title";
@@ -33,6 +36,12 @@ public class HabitTaskService {
     private final HabitTaskMapper mapper;
 
     @Transactional
+    @Caching(
+            evict = {
+                    @CacheEvict(value = CacheNames.HABIT_TASK + CacheNames.LIST_SUFFIX, allEntries = true),
+                    @CacheEvict(value = CacheNames.HABIT_TASK + CacheNames.PAGE_SUFFIX, allEntries = true)
+            }
+    )
     public HabitTask addHabitTask(HabitTask habitTask) {
         if (repository.existsByUser_UserIdAndTitle(
                 habitTask.getUser().getUserId(), habitTask.getTitle()))
@@ -42,11 +51,22 @@ public class HabitTaskService {
     }
 
     @Transactional
+    @Caching(
+            put = @CachePut(
+                    value = CacheNames.HABIT_TASK,
+                    key = "#result.user.userId + '-' + #result.habitTaskId"
+            ),
+            evict = {
+                    @CacheEvict(value = CacheNames.HABIT_TASK + CacheNames.LIST_SUFFIX, allEntries = true),
+                    @CacheEvict(value = CacheNames.HABIT_TASK + CacheNames.PAGE_SUFFIX, allEntries = true)
+            }
+    )
     public HabitTask updateHabitTask(UUID habitTaskId, UUID userId, HabitTaskRequest request) {
         HabitTask habitTask = getHabitTaskOrThrow(habitTaskId, userId);
 
-        if (repository.existsByUser_UserIdAndTitle(
-                habitTask.getUser().getUserId(), habitTask.getTitle()))
+        if (StringUtils.hasText(request.title())
+                && !request.title().equalsIgnoreCase(habitTask.getTitle())
+                && repository.existsByUser_UserIdAndTitleAndHabitTaskIdNot(userId, request.title(), habitTaskId))
             throw new DuplicateResourceException(HABIT_TASK_ALREADY_EXISTS);
 
         mapper.update(request, habitTask);
@@ -55,11 +75,28 @@ public class HabitTaskService {
     }
 
     @Transactional
+    @Caching(
+            evict = {
+                    @CacheEvict(value = CacheNames.HABIT_TASK, key = "#userId + '-' + #habitTaskId"),
+                    @CacheEvict(value = CacheNames.HABIT_TASK + CacheNames.LIST_SUFFIX, allEntries = true),
+                    @CacheEvict(value = CacheNames.HABIT_TASK + CacheNames.PAGE_SUFFIX, allEntries = true)
+            }
+    )
     public void deleteHabitTask(UUID habitTaskId, UUID userId){
         repository.delete(getHabitTaskOrThrow(habitTaskId,userId));
     }
 
     @Transactional
+    @Caching(
+            put = @CachePut(
+                    value = CacheNames.HABIT_TASK,
+                    key = "#result.user.userId + '-' + #result.habitTaskId"
+            ),
+            evict = {
+                    @CacheEvict(value = CacheNames.HABIT_TASK + CacheNames.LIST_SUFFIX, allEntries = true),
+                    @CacheEvict(value = CacheNames.HABIT_TASK + CacheNames.PAGE_SUFFIX, allEntries = true)
+            }
+    )
     public HabitTask toggleActive(UUID habitTaskId, UUID userId) {
         HabitTask habitTask = getHabitTaskOrThrow(habitTaskId, userId);
         habitTask.setActive(!habitTask.isActive());
@@ -67,10 +104,20 @@ public class HabitTaskService {
         return repository.save(habitTask);
     }
 
+    @Cacheable(
+            value = CacheNames.HABIT_TASK,
+            key = "#userId + '-' + #habitTaskId",
+            sync = true
+    )
     public HabitTask findByIdAndUser(UUID habitTaskId, UUID userId) {
         return getHabitTaskOrThrow(habitTaskId, userId);
     }
 
+    @Cacheable(
+            value = CacheNames.HABIT_TASK + CacheNames.LIST_SUFFIX,
+            key = "#userId + '-' + #title + '-' + #root.methodName",
+            sync = true
+    )
     public List<HabitTask> searchByTitle(UUID userId, String title) {
         if (userId == null)
             throw new InvalidRequestException("User Id " + CAN_NOT_BE_NULL);
@@ -80,37 +127,61 @@ public class HabitTaskService {
         return repository.findByUser_UserIdAndTitleContainingIgnoreCaseAndIsActiveTrue(userId, title);
     }
 
-    public Page<HabitTask> filterTasks(UUID userId, UUID categoryId, UUID priorityLevelId,
-                                       RecurrenceType recurrenceType, int pageNumber) {
+    @Cacheable(
+            key = "#userId + '-' + #categoryId + '-' + #priorityLevelId + '-' + #recurrenceType + '-' + #pageNumber + '-' + #root.methodName",
+            sync = true
+    )
+    public PageModel<HabitTask> filterTasks(UUID userId, UUID categoryId, UUID priorityLevelId,
+                                            RecurrenceType recurrenceType, int pageNumber) {
         if (userId == null)
             throw new InvalidRequestException("User Id " + CAN_NOT_BE_NULL);
 
-        return repository.filterTasks(userId, categoryId, priorityLevelId, recurrenceType,
-                PageableUtils.pageable(pageNumber, SORT_BY));
+        return PageModel.from(
+                repository.filterTasks(userId, categoryId, priorityLevelId, recurrenceType,
+                        PageableUtils.pageable(pageNumber, SORT_BY))
+        );
     }
 
-    public Page<HabitTask> findAllActiveByUser(UUID userId, int pageNumber) {
+    @Cacheable(
+            key = "#userId + '-' + #pageNumber + '-' + #root.methodName",
+            sync = true
+    )
+    public PageModel<HabitTask> findAllActiveByUser(UUID userId, int pageNumber) {
         if (userId == null)
             throw new InvalidRequestException("User Id " + CAN_NOT_BE_NULL);
 
-        return repository.findAllByUser_UserIdAndIsActiveTrue(userId, PageableUtils.pageable(pageNumber, SORT_BY));
+        return PageModel.from(
+                repository.findAllByUser_UserIdAndIsActiveTrue(userId, PageableUtils.pageable(pageNumber, SORT_BY))
+        );
     }
 
-    public Page<HabitTask> findAllInactiveByUser(UUID userId, int pageNumber) {
+    @Cacheable(
+            key = "#userId + '-' + #pageNumber + '-' + #root.methodName",
+            sync = true
+    )
+    public PageModel<HabitTask> findAllInactiveByUser(UUID userId, int pageNumber) {
         if (userId == null)
             throw new InvalidRequestException("User Id " + CAN_NOT_BE_NULL);
 
-        return repository.findAllByUser_UserIdAndIsActiveFalse(userId, PageableUtils.pageable(pageNumber, SORT_BY));
+        return PageModel.from(
+                repository.findAllByUser_UserIdAndIsActiveFalse(userId, PageableUtils.pageable(pageNumber, SORT_BY))
+        );
     }
 
-    public Page<HabitTask> findByStartDate(UUID userId, Instant startDate, int pageNumber) {
+    @Cacheable(
+            key = "#userId + '-' + #startDate + '-' + #pageNumber + '-' + #root.methodName",
+            sync = true
+    )
+    public PageModel<HabitTask> findByStartDate(UUID userId, Instant startDate, int pageNumber) {
         if (userId == null)
             throw new InvalidRequestException("User Id " + CAN_NOT_BE_NULL);
         if (startDate == null)
             throw new InvalidRequestException("Start date " + CAN_NOT_BE_NULL);
 
-        return repository.findByUser_UserIdAndStartDateAndIsActiveTrue(userId, startDate,
-                PageableUtils.pageable(pageNumber, SORT_BY));
+        return PageModel.from(
+                repository.findByUser_UserIdAndStartDateAndIsActiveTrue(userId, startDate,
+                        PageableUtils.pageable(pageNumber, SORT_BY))
+        );
     }
 
     public long countByStartDate(UUID userId, Instant startDate) {
@@ -155,7 +226,7 @@ public class HabitTaskService {
         if (userId == null)
             throw new InvalidRequestException("User Id " + CAN_NOT_BE_NULL);
 
-        return repository.findByUser_UserIdAndHabitTaskIdAndIsActiveTrue(userId, habitTaskId)
+        return repository.findByUser_UserIdAndHabitTaskId(userId, habitTaskId)
                 .orElseThrow(() -> new ResourceNotFoundException(HABIT_TASK_NOT_FOUND + "id"));
     }
 

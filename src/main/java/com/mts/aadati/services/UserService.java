@@ -1,5 +1,6 @@
 package com.mts.aadati.services;
 
+import com.mts.aadati.configs.caching.CacheNames;
 import com.mts.aadati.dto.mapper.UserMapper;
 import com.mts.aadati.dto.request.UserRequest;
 import com.mts.aadati.entities.Role;
@@ -9,6 +10,7 @@ import com.mts.aadati.exceptions.exception.InvalidRequestException;
 import com.mts.aadati.exceptions.exception.ResourceNotFoundException;
 import com.mts.aadati.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,7 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@CacheConfig(cacheNames = CacheNames.USER)
 public class UserService {
 
     private final UserRepository userRepository;
@@ -37,12 +40,13 @@ public class UserService {
     }
 
     @Transactional
-    public User updateUser(UUID userID, UserRequest request) {
+    @CachePut(key = "#userId")
+    public User updateUser(UUID userId, UserRequest request) {
 
-        if (userRepository.existsByEmailOrUsernameExcludingUser(request.email(), request.username(),userID))
+        if (userRepository.existsByEmailOrUsernameExcludingUser(request.email(), request.username(),userId))
             throw new DuplicateResourceException("Email or username already exists");
 
-        User existUser = getUserOrThrow(userID);
+        User existUser = getUserOrThrow(userId);
 
         if (StringUtils.hasText(request.email()) && !request.email().equals(existUser.getEmail()) )
             existUser.setEmailVerified(false);
@@ -56,6 +60,7 @@ public class UserService {
     }
 
     @Transactional
+    @CacheEvict(key = "#userId")
     public void removeUserById(UUID userId) {
         userRepository.delete(getUserOrThrow(userId));
     }
@@ -68,6 +73,11 @@ public class UserService {
             throw new ResourceNotFoundException("Not found user by email");
 
         return userRepository.getEmailIsActive(email);
+    }
+
+    @Cacheable(key = "#userId")
+    public User getUser(UUID userId){
+        return getUserOrThrow(userId);
     }
 
     public User findByUsername(String username) {

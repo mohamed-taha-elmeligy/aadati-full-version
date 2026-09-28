@@ -1,5 +1,7 @@
 package com.mts.aadati.services;
 
+import com.mts.aadati.configs.caching.CacheNames;
+import com.mts.aadati.dto.response.PageModel;
 import com.mts.aadati.entities.HabitCalendar;
 import com.mts.aadati.entities.HabitWeek;
 import com.mts.aadati.exceptions.exception.DuplicateResourceException;
@@ -9,13 +11,17 @@ import com.mts.aadati.repository.HabitWeekRepository;
 import com.mts.aadati.utils.pagination.PageableUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
+import org.springframework.cache.annotation.CacheConfig;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,6 +29,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@CacheConfig(cacheNames = CacheNames.HABIT_WEEK + CacheNames.PAGE_SUFFIX)
 public class HabitWeekService {
 
     private static final String SORT_CREATED_AT = "createdAt";
@@ -33,6 +40,18 @@ public class HabitWeekService {
     private final HabitWeekRepository repository;
 
     @Transactional
+    @Caching(
+            evict = {
+                    @CacheEvict(
+                            value = CacheNames.HABIT_WEEK + CacheNames.LIST_SUFFIX,
+                            allEntries = true
+                    ),
+                    @CacheEvict(
+                            value = CacheNames.HABIT_WEEK + CacheNames.PAGE_SUFFIX,
+                            allEntries = true
+                    )
+            }
+    )
     public HabitWeek addWeek(HabitWeek week){
         if (repository.existsByStartWeekOrEndWeek(week.getStartWeek(),week.getEndWeek()))
             throw new DuplicateResourceException(HABIT_WEEK_ALREADY_EXISTS);
@@ -44,23 +63,54 @@ public class HabitWeekService {
     }
 
     @Transactional
+    @Caching(
+            evict = {
+                    @CacheEvict(
+                            value = CacheNames.HABIT_WEEK,
+                            allEntries = true
+                    ),
+                    @CacheEvict(
+                            value = CacheNames.HABIT_WEEK + CacheNames.LIST_SUFFIX,
+                            allEntries = true
+                    ),
+                    @CacheEvict(
+                            value = CacheNames.HABIT_WEEK + CacheNames.PAGE_SUFFIX,
+                            allEntries = true
+                    )
+            }
+    )
     public int cleanupOldWeeks() {
-        Instant cutoffDate = Instant.now().minus(20, ChronoUnit.YEARS);
+        Instant cutoffDate = ZonedDateTime.now(ZoneOffset.UTC).minusYears(20).toInstant();
         int deletedCount = repository.deleteAllByCreatedAtBefore(cutoffDate);
         log.info("Cleaned up {} HabitWeek records created before {}", deletedCount, cutoffDate);
         return deletedCount;
     }
 
-    public Page<HabitWeek> findByYear(int year, int pageNumber){
-        return repository.findByYear(year, PageableUtils.pageable(pageNumber, SORT_CREATED_AT));
+    @Cacheable(
+            key = "#year + '-' + #pageNumber + '-' + #root.methodName",
+            sync = true
+    )
+    public PageModel<HabitWeek> findByYear(int year, int pageNumber){
+        return PageModel.from(
+                repository.findByYear(year, PageableUtils.pageable(pageNumber, SORT_CREATED_AT))
+        );
     }
 
+    @Cacheable(
+            value = CacheNames.HABIT_WEEK,
+            key = "#weekNumber + '-' + #year",
+            sync = true
+    )
     public HabitWeek findByWeekNumberAndYear(int weekNumber, int year){
         return repository.findByWeekNumberAndYear(weekNumber, year)
                 .orElseThrow(()-> new ResourceNotFoundException(HABIT_WEEK_NOT_FOUND + "weekNumber and year"));
     }
 
-    public Page<HabitWeek> findByStartWeekBetween(LocalDate start, LocalDate end, int pageNumber) {
+    @Cacheable(
+            key = "#start + '-' + #end + '-' + #pageNumber + '-' + #root.methodName",
+            sync = true
+    )
+    public PageModel<HabitWeek> findByStartWeekBetween(LocalDate start, LocalDate end, int pageNumber) {
 
         if (start == null)
             throw new InvalidRequestException("Start week date " + CAN_NOT_BE_NULL);
@@ -69,13 +119,20 @@ public class HabitWeekService {
         if (start.isAfter(end))
             throw new InvalidRequestException("Start Week date can't be after end week");
 
-
-        return repository.findByStartWeekBetween(start, end,
-                PageableUtils.pageable(pageNumber, SORT_CREATED_AT)
+        return PageModel.from(
+                repository.findByStartWeekBetween(
+                        start,
+                        end,
+                        PageableUtils.pageable(pageNumber, SORT_CREATED_AT)
+                )
         );
     }
 
-    public Page<HabitWeek> findByEndWeekBetween(LocalDate start, LocalDate end, int pageNumber) {
+    @Cacheable(
+            key = "#start + '-' + #end + '-' + #pageNumber + '-' + #root.methodName",
+            sync = true
+    )
+    public PageModel<HabitWeek> findByEndWeekBetween(LocalDate start, LocalDate end, int pageNumber) {
 
         if (start == null)
             throw new InvalidRequestException("Start week date " + CAN_NOT_BE_NULL);
@@ -84,24 +141,49 @@ public class HabitWeekService {
         if (start.isAfter(end))
             throw new InvalidRequestException("Start Week date can't be after end week");
 
-        return repository.findByEndWeekBetween(start, end,
-                PageableUtils.pageable(pageNumber, SORT_CREATED_AT)
+        return PageModel.from(
+                repository.findByEndWeekBetween(
+                        start,
+                        end,
+                        PageableUtils.pageable(pageNumber, SORT_CREATED_AT)
+                )
         );
     }
 
-    public Page<HabitWeek> findAllByStartWeekAsc(int pageNumber){
-        return repository.findAllByOrderByStartWeekAsc(PageableUtils.pageable(pageNumber,SORT_CREATED_AT));
+    @Cacheable(
+            key = "#pageNumber + '-' + #root.methodName",
+            sync = true
+    )
+    public PageModel<HabitWeek> findAllByStartWeekAsc(int pageNumber){
+        return PageModel.from(
+                repository.findAllByOrderByStartWeekAsc(PageableUtils.pageable(pageNumber,SORT_CREATED_AT))
+        );
     }
 
+    @Cacheable(
+            value = CacheNames.HABIT_WEEK + CacheNames.LIST_SUFFIX,
+            key = "#root.methodName",
+            sync = true
+    )
     public List<HabitWeek> findTopByCreatedAtDesc(){
         return repository.findTop10ByOrderByCreatedAtDesc();
     }
 
+    @Cacheable(
+            value = CacheNames.HABIT_WEEK,
+            key = "#root.methodName",
+            sync = true
+    )
     public HabitWeek findFirst() {
         return repository.findFirstByOrderByEndWeekDesc()
-                .orElseThrow(()-> new ResourceNotFoundException("HabitWeek not found"));
+                .orElseThrow(()-> new ResourceNotFoundException(HABIT_WEEK_NOT_FOUND + "any week"));
     }
 
+    @Cacheable(
+            value = CacheNames.HABIT_WEEK + CacheNames.LIST_SUFFIX,
+            key = "#weekId + '-' + #root.methodName",
+            sync = true
+    )
     public List<HabitCalendar> findHabitCalendarsByWeekId(UUID weekId){
         if (weekId == null)
             throw new InvalidRequestException("Week Id " + CAN_NOT_BE_NULL);

@@ -1,7 +1,9 @@
 package com.mts.aadati.services;
 
+import com.mts.aadati.configs.caching.CacheNames;
 import com.mts.aadati.dto.mapper.HabitMapper;
 import com.mts.aadati.dto.request.HabitRequest;
+import com.mts.aadati.dto.response.PageModel;
 import com.mts.aadati.entities.Habit;
 import com.mts.aadati.exceptions.exception.DuplicateResourceException;
 import com.mts.aadati.exceptions.exception.InvalidRequestException;
@@ -9,7 +11,7 @@ import com.mts.aadati.exceptions.exception.ResourceNotFoundException;
 import com.mts.aadati.repository.HabitRepository;
 import com.mts.aadati.utils.pagination.PageableUtils;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
+import org.springframework.cache.annotation.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -21,6 +23,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@CacheConfig(cacheNames = CacheNames.HABIT + CacheNames.PAGE_SUFFIX)
 public class HabitService {
 
     private static final String SORT_BY = "title";
@@ -32,6 +35,12 @@ public class HabitService {
     private final HabitRepository repository;
 
     @Transactional
+    @Caching(
+            evict = {
+                    @CacheEvict(value = CacheNames.HABIT + CacheNames.LIST_SUFFIX, allEntries = true),
+                    @CacheEvict(value = CacheNames.HABIT + CacheNames.PAGE_SUFFIX, allEntries = true)
+            }
+    )
     public Habit addHabit(Habit habit) {
         if (repository.existsByTitleAndUser_UserId(habit.getTitle(), habit.getUser().getUserId()))
             throw new DuplicateResourceException(HABIT_ALREADY_EXISTS);
@@ -40,6 +49,16 @@ public class HabitService {
     }
 
     @Transactional
+    @Caching(
+            put = @CachePut(
+                    value = CacheNames.HABIT,
+                    key = "#result.user.userId + '-' + #result.habitId"
+            ),
+            evict = {
+                    @CacheEvict(value = CacheNames.HABIT + CacheNames.LIST_SUFFIX, allEntries = true),
+                    @CacheEvict(value = CacheNames.HABIT + CacheNames.PAGE_SUFFIX, allEntries = true)
+            }
+    )
     public Habit updateHabit(UUID habitId, UUID userId, HabitRequest request) {
         Habit habit = getHabitOrThrow(habitId, userId);
 
@@ -52,11 +71,28 @@ public class HabitService {
     }
 
     @Transactional
+    @Caching(
+            evict = {
+                    @CacheEvict(value = CacheNames.HABIT, key = "#userId + '-' + #habitId"),
+                    @CacheEvict(value = CacheNames.HABIT + CacheNames.LIST_SUFFIX, allEntries = true),
+                    @CacheEvict(value = CacheNames.HABIT + CacheNames.PAGE_SUFFIX, allEntries = true)
+            }
+    )
     public void deleteHabit(UUID habitId, UUID userId){
         repository.delete(getHabitOrThrow(habitId, userId));
     }
 
     @Transactional
+    @Caching(
+            put = @CachePut(
+                    value = CacheNames.HABIT,
+                    key = "#result.user.userId + '-' + #result.habitId"
+            ),
+            evict = {
+                    @CacheEvict(value = CacheNames.HABIT + CacheNames.LIST_SUFFIX, allEntries = true),
+                    @CacheEvict(value = CacheNames.HABIT + CacheNames.PAGE_SUFFIX, allEntries = true)
+            }
+    )
     public Habit toggleActive(UUID habitId, UUID userId) {
         Habit habit = getHabitOrThrow(habitId, userId);
         habit.setActive(!habit.isActive());
@@ -64,10 +100,20 @@ public class HabitService {
         return repository.save(habit);
     }
 
+    @Cacheable(
+            value = CacheNames.HABIT,
+            key = "#userId + '-' + #habitId",
+            sync = true
+    )
     public Habit findByIdAndUser(UUID habitId, UUID userId) {
         return getHabitOrThrow(habitId, userId);
     }
 
+    @Cacheable(
+            value = CacheNames.HABIT + CacheNames.LIST_SUFFIX,
+            key = "#dayOfWeek + '-' + #userId + '-' + #root.methodName",
+            sync = true
+    )
     public List<Habit> findByDayOfWeekAndUser(DayOfWeek dayOfWeek, UUID userId) {
         if (dayOfWeek == null)
             throw new InvalidRequestException("DayOfWeek " + CAN_NOT_BE_NULL);
@@ -77,6 +123,11 @@ public class HabitService {
         return repository.findByHabitDayWeekAndUser(dayOfWeek, userId);
     }
 
+    @Cacheable(
+            value = CacheNames.HABIT + CacheNames.LIST_SUFFIX,
+            key = "#title + '-' + #userId + '-' + #root.methodName",
+            sync = true
+    )
     public List<Habit> searchByTitle(String title, UUID userId) {
         if (!StringUtils.hasText(title))
             throw new InvalidRequestException("Title " + CAN_NOT_BE_NULL);
@@ -86,25 +137,43 @@ public class HabitService {
         return repository.findByTitleContainingIgnoreCaseAndUser_UserIdAndIsActiveTrue(title, userId);
     }
 
-    public Page<Habit> filterHabits(UUID userId, UUID categoryId, DayOfWeek dayOfWeek, Boolean type, int pageNumber) {
+    @Cacheable(
+            key = "#userId + '-' + #categoryId + '-' + #dayOfWeek + '-' + #type + '-' + #pageNumber + '-' + #root.methodName",
+            sync = true
+    )
+    public PageModel<Habit> filterHabits(UUID userId, UUID categoryId, DayOfWeek dayOfWeek, Boolean type, int pageNumber) {
         if (userId == null)
             throw new InvalidRequestException("User Id " + CAN_NOT_BE_NULL);
 
-        return repository.filterHabits(userId, categoryId, dayOfWeek, type, PageableUtils.pageable(pageNumber, SORT_BY));
+        return PageModel.from(
+                repository.filterHabits(userId, categoryId, dayOfWeek, type, PageableUtils.pageable(pageNumber, SORT_BY))
+        );
     }
 
-    public Page<Habit> findAllActiveByUser(UUID userId, int pageNumber) {
+    @Cacheable(
+            key = "#userId + '-' + #pageNumber + '-' + #root.methodName",
+            sync = true
+    )
+    public PageModel<Habit> findAllActiveByUser(UUID userId, int pageNumber) {
         if (userId == null)
             throw new InvalidRequestException("User Id " + CAN_NOT_BE_NULL);
 
-        return repository.findAllByUser_UserIdAndIsActiveTrue(userId, PageableUtils.pageable(pageNumber, SORT_BY));
+        return PageModel.from(
+                repository.findAllByUser_UserIdAndIsActiveTrue(userId, PageableUtils.pageable(pageNumber, SORT_BY))
+        );
     }
 
-    public Page<Habit> findAllInactiveByUser(UUID userId, int pageNumber) {
+    @Cacheable(
+            key = "#userId + '-' + #pageNumber + '-' + #root.methodName",
+            sync = true
+    )
+    public PageModel<Habit> findAllInactiveByUser(UUID userId, int pageNumber) {
         if (userId == null)
             throw new InvalidRequestException("User Id " + CAN_NOT_BE_NULL);
 
-        return repository.findAllByUser_UserIdAndIsActiveFalse(userId, PageableUtils.pageable(pageNumber, SORT_BY));
+        return PageModel.from(
+                repository.findAllByUser_UserIdAndIsActiveFalse(userId, PageableUtils.pageable(pageNumber, SORT_BY))
+        );
     }
 
     public long countActiveByUser(UUID userId) {

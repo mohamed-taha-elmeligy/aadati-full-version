@@ -1,5 +1,7 @@
 package com.mts.aadati.services;
 
+import com.mts.aadati.configs.caching.CacheNames;
+import com.mts.aadati.dto.response.PageModel;
 import com.mts.aadati.entities.Habit;
 import com.mts.aadati.entities.HabitDayWeek;
 import com.mts.aadati.exceptions.exception.DuplicateResourceException;
@@ -7,7 +9,7 @@ import com.mts.aadati.exceptions.exception.InvalidRequestException;
 import com.mts.aadati.repository.HabitDayWeekRepository;
 import com.mts.aadati.utils.pagination.PageableUtils;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
+import org.springframework.cache.annotation.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@CacheConfig(cacheNames = CacheNames.HABIT_DAY_WEEK + CacheNames.LIST_SUFFIX)
 public class HabitDayWeekService {
 
     private static final String SORT_CREATED_AT = "createdAt";
@@ -27,6 +30,7 @@ public class HabitDayWeekService {
     private final HabitDayWeekRepository repository;
 
     @Transactional
+    @CacheEvict(allEntries = true)
     public HabitDayWeek addDay(HabitDayWeek dayWeek){
         if (repository.existsByDayOfWeek(dayWeek.getDayOfWeek()))
             throw new DuplicateResourceException(DAY_ALREADY_EXISTS);
@@ -34,11 +38,17 @@ public class HabitDayWeekService {
         return repository.save(dayWeek);
     }
 
+    @Cacheable(key = "#root.methodName", sync = true)
     public List<HabitDayWeek> findByDayAsc(){
         return repository.findByOrderByDayOfWeekAsc();
     }
 
-    public Page<Habit> findHabitsByDayAndUser(
+    @Cacheable(
+            value = CacheNames.HABIT + CacheNames.PAGE_SUFFIX,
+            key = "#day + '-' + #userId + '-' + #pageNumber + '-' + #root.methodName",
+            sync = true
+    )
+    public PageModel<Habit> findHabitsByDayAndUser(
             DayOfWeek day, UUID userId, int pageNumber
     ){
         if (day == null)
@@ -46,10 +56,12 @@ public class HabitDayWeekService {
         if (userId == null)
             throw new InvalidRequestException("User Id " + CAN_NOT_BE_NULL);
 
-        return repository.findHabitsByDayOfWeekAndUserId(
-                day,
-                userId,
-                PageableUtils.pageable(pageNumber,SORT_CREATED_AT)
+        return PageModel.from(
+                repository.findHabitsByDayOfWeekAndUserIdAndIsActiveTrue(
+                        day,
+                        userId,
+                        PageableUtils.pageable(pageNumber,SORT_CREATED_AT)
+                )
         );
     }
 
@@ -59,7 +71,7 @@ public class HabitDayWeekService {
         if (userId == null)
             throw new InvalidRequestException("User Id " + CAN_NOT_BE_NULL);
 
-        return repository.countHabitsByDayOfWeekAndUserId(day, userId);
+        return repository.countHabitsByDayOfWeekAndUserIdAndIsActiveTrue(day, userId);
     }
 
 }
