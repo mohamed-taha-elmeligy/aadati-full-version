@@ -114,6 +114,7 @@ public class JwtUtils {
         catch (MalformedJwtException e){throw  new InvalidCredentialsException("Token is Malformed");}
         catch (SignatureException e) {throw new InvalidCredentialsException("Signature not valid");}
         catch (UnsupportedJwtException e){throw new InvalidCredentialsException("Unsupported token");}
+        catch (JwtException e) { throw new InvalidCredentialsException("Invalid token"); }
         catch (IllegalArgumentException e) { throw new InvalidCredentialsException("Token is empty or invalid"); }
     }
 

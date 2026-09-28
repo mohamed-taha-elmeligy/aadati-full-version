@@ -27,6 +27,6 @@ public class JwtBlocklistService {
     }
 
     public boolean isBlocked(String jti){
-        return Boolean.TRUE.equals(redis.hasKey(PREFIX+jti));
+        return redis.hasKey(PREFIX + jti);
     }
 }
