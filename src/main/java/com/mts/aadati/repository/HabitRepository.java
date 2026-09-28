@@ -1,8 +1,6 @@
 package com.mts.aadati.repository;
 
 import com.mts.aadati.entities.Habit;
-import com.mts.aadati.entities.HabitCategory;
-import com.mts.aadati.entities.HabitDayWeek;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

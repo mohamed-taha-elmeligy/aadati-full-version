@@ -25,9 +25,9 @@ public interface HabitDayWeekRepository extends JpaRepository<HabitDayWeek, Long
     LEFT JOIN FETCH hb.user
     LEFT JOIN FETCH hb.habitCategory
     WHERE hdw.dayOfWeek = :dayOfWeek
-      AND hb.user.userId = :userId
+      AND hb.user.userId = :userId And hb.isActive = True
     """)
-    Page<Habit> findHabitsByDayOfWeekAndUserId(
+    Page<Habit> findHabitsByDayOfWeekAndUserIdAndIsActiveTrue(
             @Param("dayOfWeek") DayOfWeek dayOfWeek,
             @Param("userId") UUID userId,
             Pageable pageable
@@ -38,9 +38,9 @@ public interface HabitDayWeekRepository extends JpaRepository<HabitDayWeek, Long
     FROM HabitDayWeek hdw
     JOIN hdw.habits hb
     WHERE hdw.dayOfWeek = :day
-      AND hb.user.userId = :userId
+      AND hb.user.userId = :userId And hb.isActive = True
     """)
-    long countHabitsByDayOfWeekAndUserId(
+    long countHabitsByDayOfWeekAndUserIdAndIsActiveTrue(
             @Param("day") DayOfWeek day,
             @Param("userId") UUID userId
     );

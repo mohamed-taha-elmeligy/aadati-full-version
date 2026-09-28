@@ -61,6 +61,16 @@ public class PercentageWeek extends Auditing {
         return "Invalid rating";
     }
 
+    public void updateRate(BigDecimal newRate) {
+        if (newRate == null) {
+            throw new IllegalArgumentException("Rate cannot be null");
+        }
+        if (newRate.compareTo(BigDecimal.ZERO) < 0
+                || newRate.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new IllegalArgumentException("Rate must be between 0 and 100");
+        }
+        this.rate = newRate;
+    }
 
     @PrePersist
     @PreUpdate

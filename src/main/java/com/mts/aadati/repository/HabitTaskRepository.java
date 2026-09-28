@@ -17,7 +17,7 @@ import java.util.UUID;
 @Repository
 public interface HabitTaskRepository extends JpaRepository<HabitTask, UUID> {
 
-    Optional<HabitTask> findByUser_UserIdAndHabitTaskIdAndIsActiveTrue(UUID userId, UUID habitTaskId);
+    Optional<HabitTask> findByUser_UserIdAndHabitTaskId(UUID userId, UUID habitTaskId);
 
     List<HabitTask> findByUser_UserIdAndTitleContainingIgnoreCaseAndIsActiveTrue(UUID userId, String title);
 
@@ -43,6 +43,7 @@ public interface HabitTaskRepository extends JpaRepository<HabitTask, UUID> {
     Page<HabitTask> findByUser_UserIdAndStartDateAndIsActiveTrue(UUID userId, Instant startDate, Pageable pageable);
 
     boolean existsByUser_UserIdAndTitle(UUID userId, String title);
+    boolean existsByUser_UserIdAndTitleAndHabitTaskIdNot(UUID userId,String title,UUID habitTaskId);
 
     long countByUser_UserIdAndStartDateAndIsActiveTrue(UUID userId, Instant startDate);
     long countByUser_UserIdAndRecurrenceTypeAndIsActiveTrue(UUID userId, RecurrenceType recurrenceType);

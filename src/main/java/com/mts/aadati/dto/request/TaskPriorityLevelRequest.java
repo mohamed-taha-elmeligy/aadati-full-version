@@ -6,7 +6,7 @@ import lombok.Builder;
 @Builder
 public record TaskPriorityLevelRequest (
         @Min(1)
-        @Max(10)
+        @Max(50)
         int priorityLevel,
 
         @NotBlank
