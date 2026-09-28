@@ -4,11 +4,11 @@ public final class CacheNames {
 
     private CacheNames() {}
 
-    public static final String CALENDAR              = "calendar";
-    public static final String CATEGORY              = "category";
+    public static final String HABIT_CALENDAR = "calendar";
+    public static final String HABIT_CATEGORY        = "category";
 
-    public static final String DAY                   = "day";
-    public static final String WEEK                  = "week";
+    public static final String HABIT_DAY_WEEK        = "day";
+    public static final String HABIT_WEEK            = "week";
     public static final String HABIT                 = "habit";
 
     public static final String HABIT_TASK            = "habit-task";

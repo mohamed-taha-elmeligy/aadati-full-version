@@ -6,17 +6,17 @@ import java.time.Duration;
 
 @Getter
 public enum CacheTtl {
-    DAY             (CacheNames.DAY,              Ttl.REFERENCE, Ttl.REFERENCE, Ttl.STABLE),
-    WEEK            (CacheNames.WEEK,             Ttl.REFERENCE, Ttl.REFERENCE, Ttl.STABLE),
+    DAY             (CacheNames.HABIT_DAY_WEEK,              Ttl.REFERENCE, Ttl.REFERENCE, Ttl.STABLE),
+    WEEK            (CacheNames.HABIT_WEEK,             Ttl.REFERENCE, Ttl.REFERENCE, Ttl.STABLE),
     ROLE            (CacheNames.ROLE,             Ttl.REFERENCE, Ttl.REFERENCE, Ttl.STABLE),
     PRIORITY_LEVEL  (CacheNames.PRIORITY_LEVEL,   Ttl.REFERENCE, Ttl.REFERENCE, Ttl.STABLE),
 
-    CATEGORY        (CacheNames.CATEGORY,         Ttl.STABLE,    Ttl.STABLE,    Ttl.LISTS),
+    CATEGORY        (CacheNames.HABIT_CATEGORY,         Ttl.STABLE,    Ttl.STABLE,    Ttl.LISTS),
 
     USER            (CacheNames.USER,             Ttl.STANDARD,  Ttl.LISTS,     Ttl.PAGES),
     HABIT           (CacheNames.HABIT,            Ttl.STANDARD,  Ttl.LISTS,     Ttl.PAGES),
     HABIT_TASK      (CacheNames.HABIT_TASK,       Ttl.STANDARD,  Ttl.LISTS,     Ttl.PAGES),
-    CALENDAR        (CacheNames.CALENDAR,         Ttl.STANDARD,  Ttl.LISTS,     Ttl.PAGES),
+    CALENDAR        (CacheNames.HABIT_CALENDAR,         Ttl.STANDARD,  Ttl.LISTS,     Ttl.PAGES),
 
     PERCENTAGE_DAY  (CacheNames.PERCENTAGE_DAY,   Ttl.COMPUTED,  Ttl.COMPUTED,  Ttl.COMPUTED),
     PERCENTAGE_WEEK (CacheNames.PERCENTAGE_WEEK,  Ttl.COMPUTED,  Ttl.COMPUTED,  Ttl.COMPUTED),
