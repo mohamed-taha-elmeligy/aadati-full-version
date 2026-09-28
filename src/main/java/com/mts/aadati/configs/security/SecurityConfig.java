@@ -52,10 +52,12 @@ public class SecurityConfig {
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth-> auth
-                                .requestMatchers("/aadati/api/auth/**").permitAll()
-                                .requestMatchers("/aadati/api/admin/**").hasRole(ROLE_ADMIN)
-                                .requestMatchers("/aadati/api/user/**").hasRole(ROLE_USER)
-                                .anyRequest().authenticated()
+                        .requestMatchers("/aadati/api/auth/**").permitAll()
+                        .requestMatchers("/swagger-ui/**").permitAll()
+                        .requestMatchers("/v3/api-docs/**").permitAll()
+                        .requestMatchers("/aadati/api/admin/**").hasRole(ROLE_ADMIN)
+                        .requestMatchers("/aadati/api/user/**").hasRole(ROLE_USER)
+                        .anyRequest().authenticated()
                 )
                 .exceptionHandling(exceptionHandling -> exceptionHandling
                         .accessDeniedHandler(accessDeniedHandler)
