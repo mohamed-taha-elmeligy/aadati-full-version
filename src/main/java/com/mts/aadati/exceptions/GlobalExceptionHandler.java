@@ -12,6 +12,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.net.URI;
 import java.util.HashMap;
@@ -63,6 +64,29 @@ public class GlobalExceptionHandler {
         return problemDetailBuilder("Access Denied",
                 HttpStatus.FORBIDDEN,
                 "You do not have permission to perform this action.",
+                request,
+                null
+        );
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        log.debug("Type Mismatch: {}", ex.getMessage());
+
+        String required = ex.getRequiredType() != null
+                ? ex.getRequiredType().getSimpleName()
+                : "the expected type";
+
+        String message = "Parameter '%s' with value '%s' could not be converted to %s".formatted(
+                ex.getName(),
+                ex.getValue(),
+                required
+        );
+
+        return problemDetailBuilder(
+                "Invalid Parameter",
+                HttpStatus.BAD_REQUEST,
+                message,
                 request,
                 null
         );
