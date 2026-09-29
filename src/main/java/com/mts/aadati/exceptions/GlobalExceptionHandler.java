@@ -4,6 +4,7 @@ import com.mts.aadati.exceptions.exception.*;
 import jakarta.annotation.Nullable;
 import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -30,6 +31,38 @@ public class GlobalExceptionHandler {
                 "Operation Failed",
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "An internal error occurred. Please try again later.",
+                request,
+                null
+        );
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ProblemDetail handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest request) {
+        log.debug("Constraint Violation: {}", ex.getMessage());
+
+        Map<String, String> fieldErrors = new HashMap<>();
+        ex.getConstraintViolations().forEach(cv -> {
+            String field = cv.getPropertyPath().toString();
+            int lastDot = field.lastIndexOf('.');
+            if (lastDot != -1) field = field.substring(lastDot + 1);
+            fieldErrors.put(field, cv.getMessage());
+        });
+
+        return problemDetailBuilder(
+                "Validation Failed",
+                HttpStatus.BAD_REQUEST,
+                "Request validation failed",
+                request,
+                fieldErrors
+        );
+    }
+
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ProblemDetail handleAccessDenied(org.springframework.security.access.AccessDeniedException ex, HttpServletRequest request) {
+        log.warn("Access Denied: {}", ex.getMessage());
+        return problemDetailBuilder("Access Denied",
+                HttpStatus.FORBIDDEN,
+                "You do not have permission to perform this action.",
                 request,
                 null
         );
