@@ -19,7 +19,7 @@ public interface HabitMapper {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "habitCompletions", ignore = true)
-    @Mapping(target = "habitDayWeeks", ignore = true)
+    @Mapping(target = "habitDayWeeks", source = "dayWeeks")
     @Mapping(target = "user", source = "user")
     @Mapping(target = "habitCategory", source = "habitCategory")
     @Mapping(target = "active", source = "request.isActive")
@@ -27,7 +27,8 @@ public interface HabitMapper {
     Habit toEntity(
             HabitRequest request,
             User user,
-            HabitCategory habitCategory
+            HabitCategory habitCategory,
+            List<HabitDayWeek> dayWeeks
     );
 
     @Mapping(target = "userId", source = "user.userId")
@@ -40,12 +41,15 @@ public interface HabitMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "habitCompletions", ignore = true)
-    @Mapping(target = "habitDayWeeks", ignore = true)
+    @Mapping(target = "habitDayWeeks", source = "dayWeeks")
     @Mapping(target = "user", ignore = true)
-    @Mapping(target = "habitCategory", ignore = true)
-    @Mapping(target = "active", source = "isActive")
+    @Mapping(target = "habitCategory", source = "habitCategory")
+    @Mapping(target = "active", source = "request.isActive")
+    @Mapping(target = "description", source = "request.description")
     void update(
             HabitRequest request,
+            HabitCategory habitCategory,
+            List<HabitDayWeek> dayWeeks,
             @MappingTarget Habit habit
     );
 

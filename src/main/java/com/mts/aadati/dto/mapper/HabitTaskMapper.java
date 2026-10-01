@@ -2,10 +2,7 @@ package com.mts.aadati.dto.mapper;
 
 import com.mts.aadati.dto.request.HabitTaskRequest;
 import com.mts.aadati.dto.response.HabitTaskResponse;
-import com.mts.aadati.entities.HabitCategory;
-import com.mts.aadati.entities.HabitTask;
-import com.mts.aadati.entities.TaskPriorityLevel;
-import com.mts.aadati.entities.User;
+import com.mts.aadati.entities.*;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
@@ -28,8 +25,7 @@ public interface HabitTaskMapper {
             HabitTaskRequest request,
             User user,
             TaskPriorityLevel taskPriorityLevel,
-            HabitCategory habitCategory
-    );
+            HabitCategory habitCategory);
 
     @Mapping(target = "isActive", source = "active")
     @Mapping(target = "userId", source = "habitTask.user.userId")
@@ -44,8 +40,11 @@ public interface HabitTaskMapper {
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "taskPriorityLevel", ignore = true)
     @Mapping(target = "habitCategory", ignore = true)
-    @Mapping(target = "active", source = "isActive")
-    void update(HabitTaskRequest request, @MappingTarget HabitTask habitTask);
+    @Mapping(target = "active", source = "request.isActive")
+    @Mapping(target = "description", source = "request.description")
+    void update(HabitTaskRequest request, TaskPriorityLevel taskPriorityLevel,
+                HabitCategory habitCategory,
+                @MappingTarget HabitTask habitTask);
 
     List<HabitTaskResponse> toResponseList(List<HabitTask> habitTasks);
 }
