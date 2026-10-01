@@ -1,8 +1,7 @@
 package com.mts.aadati.services;
 
 import com.mts.aadati.dto.request.TaskCompletionRequest;
-import com.mts.aadati.entities.HabitCalendar;
-import com.mts.aadati.entities.HabitTask;
+import com.mts.aadati.dto.response.PageModel;
 import com.mts.aadati.entities.TaskCompletion;
 import com.mts.aadati.exceptions.exception.DuplicateResourceException;
 import com.mts.aadati.exceptions.exception.InvalidRequestException;
@@ -11,7 +10,6 @@ import com.mts.aadati.repository.TaskCompletionRepository;
 import com.mts.aadati.utils.pagination.PageableUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,24 +45,18 @@ public class TaskCompletionService {
     }
 
     @Transactional
-    public TaskCompletion updateCompletion(UUID completionID, TaskCompletionRequest request) {
-        TaskCompletion completion = getCompletionOrThrow(completionID);
+    public TaskCompletion updateCompletion( UUID userId, TaskCompletionRequest request) {
+        TaskCompletion completion = getCompletionOrThrow(request.taskCompletionId());
 
-        if (repository.existsByHabitTask_HabitTaskIdAndHabitCalendar_HabitCalendarIdAndTaskCompletionIdNot(
-                request.habitTaskId(),
-                request.habitCalendarId(),
-                completionID)
+        if (repository.existsByHabitTask_User_UserIdAndAndTaskCompletionIdNot(
+                userId,
+                request.taskCompletionId())
         )
             throw new DuplicateResourceException(TASK_COMPLETION_ALREADY_EXISTS);
 
         completion.setComplete(request.complete());
 
         return repository.save(completion);
-    }
-
-    @Transactional
-    public void deleteCompletion(UUID completionID) {
-        repository.delete(getCompletionOrThrow(completionID));
     }
 
     @Transactional
@@ -85,72 +77,108 @@ public class TaskCompletionService {
                 .orElseThrow(() -> new ResourceNotFoundException(TASK_COMPLETION_NOT_FOUND + "id"));
     }
 
-    public Page<TaskCompletion> findByHabitTaskAndUser(HabitTask habitTask, UUID userId, int pageNumber) {
-        if (habitTask == null)
-            throw new InvalidRequestException("HabitTask " + CAN_NOT_BE_NULL);
+    public PageModel<TaskCompletion> findByHabitTaskAndUser(UUID habitTaskId, UUID userId, int pageNumber) {
+        if (habitTaskId == null)
+            throw new InvalidRequestException("HabitTask ID " + CAN_NOT_BE_NULL);
         if (userId == null)
             throw new InvalidRequestException("User ID " + CAN_NOT_BE_NULL);
 
-        return repository.findByHabitTaskAndHabitTask_User_UserId(habitTask, userId, PageableUtils.pageable(pageNumber, SORT_COMPLETED_AT,SORT_DIRECTION));
+        return PageModel.from(
+                repository.findByHabitTask_HabitTaskIdAndHabitTask_User_UserId(
+                        habitTaskId,
+                        userId,
+                        PageableUtils.pageable(pageNumber, SORT_COMPLETED_AT,SORT_DIRECTION))
+        );
     }
 
-    public Page<TaskCompletion> findByHabitCalendarAndUser(HabitCalendar habitCalendar, UUID userId, int pageNumber) {
-        if (habitCalendar == null)
-            throw new InvalidRequestException("HabitCalendar " + CAN_NOT_BE_NULL);
+    public PageModel<TaskCompletion> findByHabitCalendarAndUser(UUID habitCalendarId, UUID userId, int pageNumber) {
+        if (habitCalendarId == null)
+            throw new InvalidRequestException("HabitCalendar ID" + CAN_NOT_BE_NULL);
         if (userId == null)
             throw new InvalidRequestException("User ID " + CAN_NOT_BE_NULL);
 
-        return repository.findByHabitCalendarAndHabitTask_User_UserId(habitCalendar, userId, PageableUtils.pageable(pageNumber, SORT_COMPLETED_AT,SORT_DIRECTION));
+        return PageModel.from(
+                repository.findByHabitCalendar_HabitCalendarIdAndHabitTask_User_UserId(
+                        habitCalendarId,
+                        userId,
+                        PageableUtils.pageable(pageNumber, SORT_COMPLETED_AT,SORT_DIRECTION))
+        );
     }
 
-    public Page<TaskCompletion> findByHabitTaskAndUserAndComplete(HabitTask habitTask, UUID userId, boolean complete, int pageNumber) {
-        if (habitTask == null)
-            throw new InvalidRequestException("HabitTask " + CAN_NOT_BE_NULL);
+    public PageModel<TaskCompletion> findByHabitTaskAndUserAndComplete(UUID habitTaskId, UUID userId, boolean complete, int pageNumber) {
+        if (habitTaskId == null)
+            throw new InvalidRequestException("HabitTask ID " + CAN_NOT_BE_NULL);
         if (userId == null)
             throw new InvalidRequestException("User ID " + CAN_NOT_BE_NULL);
 
-        return repository.findByHabitTaskAndUserAndComplete(habitTask, userId, complete, PageableUtils.pageable(pageNumber, SORT_COMPLETED_AT,SORT_DIRECTION));
+        return PageModel.from(
+                repository.findByHabitTaskAndUserAndComplete(
+                        habitTaskId,
+                        userId,
+                        complete,
+                        PageableUtils.pageable(pageNumber, SORT_COMPLETED_AT,SORT_DIRECTION))
+        );
     }
 
-    public Page<TaskCompletion> findByUserAndCompletedAtBetween(UUID userId, Instant start, Instant end, int pageNumber) {
+    public PageModel<TaskCompletion> findByUserAndCompletedAtBetween(UUID userId, Instant start, Instant end, int pageNumber) {
         if (userId == null)
             throw new InvalidRequestException("User ID " + CAN_NOT_BE_NULL);
         if (start == null || end == null)
             throw new InvalidRequestException("Start and end dates " + CAN_NOT_BE_NULL);
 
-        return repository.findByUserAndCompletedAtBetween(userId, start, end, PageableUtils.pageable(pageNumber, SORT_COMPLETED_AT,SORT_DIRECTION));
+        return PageModel.from(
+                repository.findByUserAndCompletedAtBetween(
+                        userId,
+                        start,
+                        end,
+                        PageableUtils.pageable(pageNumber, SORT_COMPLETED_AT,SORT_DIRECTION))
+        );
     }
 
-    public long countByHabitTaskAndUserAndComplete(HabitTask habitTask, UUID userId, boolean complete) {
-        if (habitTask == null)
-            throw new InvalidRequestException("HabitTask " + CAN_NOT_BE_NULL);
+    public long countByHabitTaskAndUserAndComplete(UUID habitTaskId, UUID userId, boolean complete) {
+        if (habitTaskId == null)
+            throw new InvalidRequestException("HabitTask ID " + CAN_NOT_BE_NULL);
         if (userId == null)
             throw new InvalidRequestException("User ID " + CAN_NOT_BE_NULL);
 
-        return repository.countByHabitTaskAndUserAndComplete(habitTask, userId, complete);
+        return repository.countByHabitTaskAndUserAndComplete(habitTaskId, userId, complete);
     }
 
-    public Page<TaskCompletion> findAllByUser(UUID userId, int pageNumber) {
+    public PageModel<TaskCompletion> findAllByUser(UUID userId, int pageNumber) {
         if (userId == null)
             throw new InvalidRequestException("User ID " + CAN_NOT_BE_NULL);
 
-        return repository.findAllByUser(userId, PageableUtils.pageable(pageNumber, SORT_COMPLETED_AT,SORT_DIRECTION));
+        return PageModel.from(
+                repository.findAllByUser(
+                        userId,
+                        PageableUtils.pageable(pageNumber, SORT_COMPLETED_AT,SORT_DIRECTION))
+        );
     }
 
-    public Page<TaskCompletion> findAllByUserAndComplete(UUID userId, boolean complete, int pageNumber) {
+    public PageModel<TaskCompletion> findAllByUserAndComplete(UUID userId, boolean complete, int pageNumber) {
         if (userId == null)
             throw new InvalidRequestException("User ID " + CAN_NOT_BE_NULL);
 
-        return repository.findAllByUserAndComplete(userId, complete, PageableUtils.pageable(pageNumber, SORT_COMPLETED_AT,SORT_DIRECTION));
+        return PageModel.from(
+                repository.findAllByUserAndComplete(
+                        userId,
+                        complete,
+                        PageableUtils.pageable(pageNumber, SORT_COMPLETED_AT,SORT_DIRECTION))
+        );
     }
 
-    public Page<TaskCompletion> findByHabitTaskTitleContainingAndUser(String title, UUID userId, int pageNumber) {
+    public PageModel<TaskCompletion> findByHabitTaskTitleContainingAndUser(String title, UUID userId, int pageNumber) {
         if (!StringUtils.hasText(title))
             throw new InvalidRequestException("Title " + CAN_NOT_BE_NULL);
         if (userId == null)
             throw new InvalidRequestException("User ID " + CAN_NOT_BE_NULL);
 
-        return repository.findByHabitTaskTitleContainingAndUser(title, userId, PageableUtils.pageable(pageNumber, SORT_COMPLETED_AT,SORT_DIRECTION));
+        return PageModel.from(
+                repository.findByHabitTaskTitleContainingAndUser(
+                        title,
+                        userId,
+                        PageableUtils.pageable(pageNumber, SORT_COMPLETED_AT,SORT_DIRECTION))
+        );
     }
 
     private TaskCompletion getCompletionOrThrow(UUID completionId) {
