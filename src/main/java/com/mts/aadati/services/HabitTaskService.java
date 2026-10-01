@@ -4,12 +4,12 @@ import com.mts.aadati.configs.caching.CacheNames;
 import com.mts.aadati.dto.mapper.HabitTaskMapper;
 import com.mts.aadati.dto.request.HabitTaskRequest;
 import com.mts.aadati.dto.response.PageModel;
-import com.mts.aadati.entities.HabitTask;
+import com.mts.aadati.entities.*;
 import com.mts.aadati.enums.RecurrenceType;
 import com.mts.aadati.exceptions.exception.DuplicateResourceException;
 import com.mts.aadati.exceptions.exception.InvalidRequestException;
 import com.mts.aadati.exceptions.exception.ResourceNotFoundException;
-import com.mts.aadati.repository.HabitTaskRepository;
+import com.mts.aadati.repository.*;
 import com.mts.aadati.utils.pagination.PageableUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.*;
@@ -31,9 +31,16 @@ public class HabitTaskService {
     private static final String HABIT_TASK_ALREADY_EXISTS = "HabitTask already exists";
     private static final String HABIT_TASK_NOT_FOUND = "HabitTask not found by ";
     private static final String CAN_NOT_BE_NULL = "can't be null";
+    private static final String HABIT_CATEGORY_NOT_FOUND_OR_INACTIVE = "Habit Category not found by or inactive";
+    private static final String TASK_PRIORITY_LEVEL_NOT_FOUND_OR_INACTIVE = "Priority Level not found by or inactive";
+
 
     private final HabitTaskRepository repository;
     private final HabitTaskMapper mapper;
+
+    private final HabitCategoryRepository categoryRepository;
+    private final TaskPriorityLevelRepository priorityLevelRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     @Caching(
@@ -42,13 +49,25 @@ public class HabitTaskService {
                     @CacheEvict(value = CacheNames.HABIT_TASK + CacheNames.PAGE_SUFFIX, allEntries = true)
             }
     )
-    public HabitTask addHabitTask(HabitTask habitTask) {
-        if (repository.existsByUser_UserIdAndTitle(
-                habitTask.getUser().getUserId(), habitTask.getTitle()))
+    public HabitTask addHabitTask(UUID userId, HabitTaskRequest request) {
+        if (repository.existsByUser_UserIdAndTitle(userId, request.title()))
             throw new DuplicateResourceException(HABIT_TASK_ALREADY_EXISTS);
+
+        if (!categoryRepository.existsByHabitCategoryIdAndIsDeletedFalse(request.habitCategoryId()))
+            throw new ResourceNotFoundException(HABIT_CATEGORY_NOT_FOUND_OR_INACTIVE);
+
+        if (!priorityLevelRepository.existsByTaskPriorityLevelIdAndIsDeletedFalse(request.taskPriorityLevelId()))
+            throw new ResourceNotFoundException(TASK_PRIORITY_LEVEL_NOT_FOUND_OR_INACTIVE);
+
+        User user = userRepository.getReferenceById(userId);
+        HabitCategory category = categoryRepository.getReferenceById(request.habitCategoryId());
+        TaskPriorityLevel priorityLevel = priorityLevelRepository.getReferenceById(request.taskPriorityLevelId());
+
+        HabitTask habitTask = mapper.toEntity(request, user, priorityLevel, category);
 
         return repository.save(habitTask);
     }
+
 
     @Transactional
     @Caching(
@@ -69,7 +88,16 @@ public class HabitTaskService {
                 && repository.existsByUser_UserIdAndTitleAndHabitTaskIdNot(userId, request.title(), habitTaskId))
             throw new DuplicateResourceException(HABIT_TASK_ALREADY_EXISTS);
 
-        mapper.update(request, habitTask);
+        if (!categoryRepository.existsByHabitCategoryIdAndIsDeletedFalse(request.habitCategoryId()))
+            throw new ResourceNotFoundException(HABIT_CATEGORY_NOT_FOUND_OR_INACTIVE);
+
+        if (!priorityLevelRepository.existsByTaskPriorityLevelIdAndIsDeletedFalse(request.taskPriorityLevelId()))
+            throw new ResourceNotFoundException(TASK_PRIORITY_LEVEL_NOT_FOUND_OR_INACTIVE);
+
+        HabitCategory category = categoryRepository.getReferenceById(request.habitCategoryId());
+        TaskPriorityLevel priorityLevel = priorityLevelRepository.getReferenceById(request.taskPriorityLevelId());
+
+        mapper.update(request, priorityLevel, category, habitTask);
 
         return repository.save(habitTask);
     }

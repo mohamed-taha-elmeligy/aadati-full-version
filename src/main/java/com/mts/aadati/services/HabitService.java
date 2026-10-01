@@ -5,10 +5,16 @@ import com.mts.aadati.dto.mapper.HabitMapper;
 import com.mts.aadati.dto.request.HabitRequest;
 import com.mts.aadati.dto.response.PageModel;
 import com.mts.aadati.entities.Habit;
+import com.mts.aadati.entities.HabitCategory;
+import com.mts.aadati.entities.HabitDayWeek;
+import com.mts.aadati.entities.User;
 import com.mts.aadati.exceptions.exception.DuplicateResourceException;
 import com.mts.aadati.exceptions.exception.InvalidRequestException;
 import com.mts.aadati.exceptions.exception.ResourceNotFoundException;
+import com.mts.aadati.repository.HabitCategoryRepository;
+import com.mts.aadati.repository.HabitDayWeekRepository;
 import com.mts.aadati.repository.HabitRepository;
+import com.mts.aadati.repository.UserRepository;
 import com.mts.aadati.utils.pagination.PageableUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.*;
@@ -30,9 +36,14 @@ public class HabitService {
     private static final String HABIT_ALREADY_EXISTS = "Habit already exists";
     private static final String HABIT_NOT_FOUND = "Habit not found by ";
     private static final String CAN_NOT_BE_NULL = "can't be null";
+    private static final String HABIT_CATEGORY_NOT_FOUND_OR_INACTIVE = "Habit Category not found or inactive";
 
     private final HabitMapper mapper;
     private final HabitRepository repository;
+
+    private final HabitDayWeekRepository dayWeekRepository;
+    private final HabitCategoryRepository categoryRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     @Caching(
@@ -41,9 +52,21 @@ public class HabitService {
                     @CacheEvict(value = CacheNames.HABIT + CacheNames.PAGE_SUFFIX, allEntries = true)
             }
     )
-    public Habit addHabit(Habit habit) {
-        if (repository.existsByTitleAndUser_UserId(habit.getTitle(), habit.getUser().getUserId()))
+    public Habit addHabit(UUID userId, HabitRequest request) {
+        if (repository.existsByTitleAndUser_UserId(request.title(), userId))
             throw new DuplicateResourceException(HABIT_ALREADY_EXISTS);
+
+        if (!categoryRepository.existsByHabitCategoryIdAndIsDeletedFalse(request.habitCategoryId()))
+            throw new ResourceNotFoundException(HABIT_CATEGORY_NOT_FOUND_OR_INACTIVE);
+
+        User user = userRepository.getReferenceById(userId);
+        HabitCategory category = categoryRepository.getReferenceById(request.habitCategoryId());
+
+        List<HabitDayWeek> days = request.habitDayWeekIds().stream()
+                .map(dayWeekRepository::getReferenceById)
+                .toList();
+
+        Habit habit = mapper.toEntity(request,user,category,days);
 
         return repository.save(habit);
     }
@@ -65,7 +88,16 @@ public class HabitService {
         if (repository.existsByTitleAndUser_UserIdAndHabitIdNot(request.title(), userId, habitId))
             throw new DuplicateResourceException(HABIT_ALREADY_EXISTS);
 
-        mapper.update(request, habit);
+        if (!categoryRepository.existsByHabitCategoryIdAndIsDeletedFalse(request.habitCategoryId()))
+            throw new ResourceNotFoundException(HABIT_CATEGORY_NOT_FOUND_OR_INACTIVE);
+
+        HabitCategory category = categoryRepository.getReferenceById(request.habitCategoryId());
+
+        List<HabitDayWeek> days = request.habitDayWeekIds().stream()
+                .map(dayWeekRepository::getReferenceById)
+                .toList();
+
+        mapper.update(request,category,days, habit);
 
         return repository.save(habit);
     }
