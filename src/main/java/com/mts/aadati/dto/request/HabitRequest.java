@@ -22,12 +22,9 @@ public record HabitRequest(
 
         boolean isActive,
 
-        @NotNull(message = "User ID is required")
-        UUID userId,
-
         @NotNull(message = "HabitCategory ID is required")
         UUID habitCategoryId,
 
+        @NotEmpty(message = "At least one day of week is required")
         List<Long> habitDayWeekIds
-) {
-}
+) {}

@@ -7,11 +7,8 @@ import java.util.UUID;
 
 @Builder
 public record TaskCompletionRequest(
-        @NotNull(message = "HabitCalendar ID is required")
-        UUID habitCalendarId,
-
-        @NotNull(message = "HabitTask ID is required")
-        UUID habitTaskId,
+        @NotNull(message = "TaskCompletion ID is required")
+        UUID taskCompletionId,
 
         boolean complete
 ) {

@@ -26,8 +26,6 @@ public record HabitTaskRequest (
         @NotNull(message = "Recurrence type is required")
         RecurrenceType recurrenceType,
 
-        @NotNull(message = "User ID is required")
-        UUID userId,
 
         @NotNull(message = "TaskPriorityLevel ID is required")
         UUID taskPriorityLevelId,
