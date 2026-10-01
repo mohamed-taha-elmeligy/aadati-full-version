@@ -56,7 +56,7 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/v3/api-docs/**").permitAll()
                         .requestMatchers("/aadati/api/admin/**").hasRole(ROLE_ADMIN)
-                        .requestMatchers("/aadati/api/user/**").hasRole(ROLE_USER)
+                        .requestMatchers("/aadati/api/user/**").hasAnyRole(ROLE_USER,ROLE_ADMIN)
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exceptionHandling -> exceptionHandling
