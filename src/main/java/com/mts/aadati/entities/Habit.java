@@ -59,12 +59,13 @@ public class Habit extends Auditing {
     @JoinColumn(name = "habit_category_id" , nullable = false)
     private HabitCategory habitCategory ;
 
+    @Setter
     @ManyToMany(cascade = {CascadeType.DETACH,CascadeType.MERGE,CascadeType.PERSIST,CascadeType.REFRESH},
     fetch = FetchType.LAZY )
     @JoinTable(name = "habit_day_of_week",
             joinColumns = @JoinColumn(name = "habit_id" ,nullable = false),
             inverseJoinColumns = @JoinColumn(name ="day_week_id",nullable = false ))
-    private final List<HabitDayWeek> habitDayWeeks = new ArrayList<>();
+    private List<HabitDayWeek> habitDayWeeks = new ArrayList<>();
 
     // ===== Constructor =====
     public Habit(@NonNull String title,
