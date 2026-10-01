@@ -80,23 +80,6 @@ public class PercentageWeekService {
                     )
             }
     )
-    public void deletePercentageWeek(UUID percentageWeekId) {
-        repository.delete(getPercentageWeekOrThrow(percentageWeekId));
-    }
-
-    @Transactional
-    @Caching(
-            evict = {
-                    @CacheEvict(
-                            value = CacheNames.PERCENTAGE_WEEK,
-                            allEntries = true
-                    ),
-                    @CacheEvict(
-                            value = CacheNames.PERCENTAGE_WEEK + CacheNames.PAGE_SUFFIX,
-                            allEntries = true
-                    )
-            }
-    )
     public int cleanupOldPercentageWeeks() {
         Instant cutoffDate = Instant.now().minus(180, ChronoUnit.DAYS);
         int deletedCount = repository.deleteAllByCreatedAtBefore(cutoffDate);

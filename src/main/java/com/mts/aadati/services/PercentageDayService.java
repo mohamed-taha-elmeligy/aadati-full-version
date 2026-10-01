@@ -2,7 +2,6 @@ package com.mts.aadati.services;
 
 import com.mts.aadati.configs.caching.CacheNames;
 import com.mts.aadati.dto.response.PageModel;
-import com.mts.aadati.entities.HabitWeek;
 import com.mts.aadati.entities.PercentageDay;
 import com.mts.aadati.exceptions.exception.DuplicateResourceException;
 import com.mts.aadati.exceptions.exception.InvalidRequestException;
@@ -98,27 +97,6 @@ public class PercentageDayService {
                     )
             }
     )
-    public void deletePercentageDay(UUID percentageDayId) {
-        repository.delete(getPercentageDayOrThrow(percentageDayId));
-    }
-
-    @Transactional
-    @Caching(
-            evict = {
-                    @CacheEvict(
-                            value = CacheNames.PERCENTAGE_DAY,
-                            allEntries = true
-                    ),
-                    @CacheEvict(
-                            value = CacheNames.PERCENTAGE_DAY + CacheNames.PAGE_SUFFIX,
-                            allEntries = true
-                    ),
-                    @CacheEvict(
-                            value = CacheNames.PERCENTAGE_DAY + CacheNames.LIST_SUFFIX,
-                            allEntries = true
-                    )
-            }
-    )
     public int cleanupOldPercentageDays() {
         Instant cutoffDate = Instant.now().minus(180, ChronoUnit.DAYS);
         int deletedCount = repository.deleteAllByCreatedAtBefore(cutoffDate);
@@ -147,14 +125,14 @@ public class PercentageDayService {
             key = "#userId + '-' + #habitWeek.weekId",
             sync = true
     )
-    public List<PercentageDay> findByUserAndHabitWeek(UUID userId, HabitWeek habitWeek) {
+    public List<PercentageDay> findByUserAndHabitWeek(UUID userId, UUID habitWeekId) {
         if (userId == null)
             throw new InvalidRequestException("User Id " + CAN_NOT_BE_NULL);
 
-        if (habitWeek == null)
-            throw new InvalidRequestException("HabitWeek " + CAN_NOT_BE_NULL);
+        if (habitWeekId == null)
+            throw new InvalidRequestException("HabitWeek Id" + CAN_NOT_BE_NULL);
 
-        return repository.findByUser_UserIdAndHabitCalendar_HabitWeek(userId, habitWeek);
+        return repository.findByUser_UserIdAndHabitCalendar_HabitWeek_WeekId(userId, habitWeekId);
     }
 
     public double findAverageRateByUser(UUID userId) {
