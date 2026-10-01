@@ -31,4 +31,6 @@ public interface TaskPriorityLevelRepository extends JpaRepository<TaskPriorityL
     boolean existsByPriorityLevelAndTaskPriorityLevelIdNot(int priorityLevel, UUID taskPriorityLevelId);
     boolean existsByNameAndTaskPriorityLevelIdNot(String name, UUID taskPriorityLevelId);
     boolean existsByColorAndTaskPriorityLevelIdNot(String color, UUID taskPriorityLevelId);
+
+    boolean existsByTaskPriorityLevelIdAndIsDeletedFalse(UUID taskPriorityLevelId);
 }

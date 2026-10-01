@@ -31,5 +31,6 @@ public interface HabitCategoryRepository extends JpaRepository<HabitCategory, UU
 
     Optional<HabitCategory> findByNameAndIsDeletedFalse(String name);
     Optional<HabitCategory> findByName(String name);
+    boolean existsByHabitCategoryIdAndIsDeletedFalse(UUID categoryId);
 
 }

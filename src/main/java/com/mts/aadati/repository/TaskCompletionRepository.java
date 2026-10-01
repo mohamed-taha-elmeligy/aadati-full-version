@@ -18,21 +18,21 @@ public interface TaskCompletionRepository extends JpaRepository<TaskCompletion, 
 
     Optional<TaskCompletion> findByTaskCompletionIdAndHabitTask_User_UserId(UUID taskCompletionId, UUID userId);
 
-    Page<TaskCompletion> findByHabitTaskAndHabitTask_User_UserId(
-            HabitTask habitTask,
+    Page<TaskCompletion> findByHabitTask_HabitTaskIdAndHabitTask_User_UserId(
+            UUID habitTaskId,
             UUID userId,
             Pageable pageable);
 
-    Page<TaskCompletion> findByHabitCalendarAndHabitTask_User_UserId(
-            HabitCalendar habitCalendar,
+    Page<TaskCompletion> findByHabitCalendar_HabitCalendarIdAndHabitTask_User_UserId(
+            UUID habitCalendarId,
             UUID userId,
             Pageable pageable);
 
     @Query("""
            SELECT tc FROM TaskCompletion tc
-           WHERE tc.habitTask.user.userId = :userId AND tc.habitTask = :habitTask AND tc.complete = :complete
+           WHERE tc.habitTask.user.userId = :userId AND tc.habitTask.habitTaskId = :habitTaskId AND tc.complete = :complete
            """)
-    Page<TaskCompletion> findByHabitTaskAndUserAndComplete(@Param("habitTask") HabitTask habitTask,
+    Page<TaskCompletion> findByHabitTaskAndUserAndComplete(@Param("habitTaskId") UUID habitTaskId,
                                                            @Param("userId") UUID userId,
                                                            @Param("complete") boolean complete,
                                                            Pageable pageable);
@@ -48,9 +48,9 @@ public interface TaskCompletionRepository extends JpaRepository<TaskCompletion, 
 
     @Query("""
            SELECT COUNT(tc) FROM TaskCompletion tc
-           WHERE tc.habitTask.user.userId = :userId AND tc.habitTask = :habitTask AND tc.complete = :complete
+           WHERE tc.habitTask.user.userId = :userId AND tc.habitTask.habitTaskId = :habitTaskId AND tc.complete = :complete
            """)
-    long countByHabitTaskAndUserAndComplete(@Param("habitTask") HabitTask habitTask,
+    long countByHabitTaskAndUserAndComplete(@Param("habitTaskId") UUID habitTaskId,
                                             @Param("userId") UUID userId,
                                             @Param("complete") boolean complete);
 
@@ -82,8 +82,8 @@ public interface TaskCompletionRepository extends JpaRepository<TaskCompletion, 
     int deleteAllByCreatedAtBefore(@Param("cutoffDate") Instant cutoffDate);
 
     boolean existsByHabitTaskAndHabitCalendar(HabitTask habitTask, HabitCalendar habitCalendar);
-    boolean existsByHabitTask_HabitTaskIdAndHabitCalendar_HabitCalendarIdAndTaskCompletionIdNot(
-            UUID habitTaskId, UUID habitCalendarId, UUID taskCompletionId);
+    boolean existsByHabitTask_User_UserIdAndAndTaskCompletionIdNot(
+            UUID userId, UUID taskCompletionId);
 
 
 }

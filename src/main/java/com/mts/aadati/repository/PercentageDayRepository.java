@@ -1,6 +1,5 @@
 package com.mts.aadati.repository;
 
-import com.mts.aadati.entities.HabitWeek;
 import com.mts.aadati.entities.PercentageDay;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -50,9 +49,9 @@ public interface PercentageDayRepository extends JpaRepository<PercentageDay, UU
     @Query("SELECT COUNT(pd) FROM PercentageDay pd WHERE pd.user.userId = :userId")
     long countByUser(@Param("userId") UUID userId);
 
-    List<PercentageDay> findByUser_UserIdAndHabitCalendar_HabitWeek(
+    List<PercentageDay> findByUser_UserIdAndHabitCalendar_HabitWeek_WeekId(
             UUID userId,
-            HabitWeek habitWeek
+            UUID habitWeekId
     );
 
     boolean existsByUser_UserIdAndHabitCalendar_HabitCalendarId(UUID userId, UUID habitCalendarId);

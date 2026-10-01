@@ -1,7 +1,5 @@
 package com.mts.aadati.repository;
 
-import com.mts.aadati.entities.Habit;
-import com.mts.aadati.entities.HabitCalendar;
 import com.mts.aadati.entities.HabitCompletion;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,10 +18,10 @@ public interface HabitCompletionRepository extends JpaRepository<HabitCompletion
 
     Optional<HabitCompletion> findByHabitCompletionIdAndHabit_User_UserId(UUID id, UUID userId);
 
-    Page<HabitCompletion> findByHabitAndHabit_User_UserId(Habit habit, UUID userId, Pageable pageable);
+    Page<HabitCompletion> findByHabit_HabitIdAndHabit_User_UserId(UUID habitId, UUID userId, Pageable pageable);
 
-    Page<HabitCompletion> findByHabitCalendarAndHabit_User_UserId(
-            HabitCalendar habitCalendar,
+    Page<HabitCompletion> findByHabitCalendar_HabitCalendarIdAndHabit_User_UserId(
+            UUID habitCalendarId,
             UUID userId,
             Pageable pageable
     );
@@ -34,11 +32,11 @@ public interface HabitCompletionRepository extends JpaRepository<HabitCompletion
            JOIN hc.habit h
            JOIN h.user u
            WHERE u.userId = :userId
-           AND h = :habit
+           AND h.habitId = :habitId
            AND hc.complete = :complete
            """)
     Page<HabitCompletion> findByHabitAndUserAndComplete(
-            @Param("habit") Habit habit,
+            @Param("habitId") UUID habitId,
             @Param("userId") UUID userId,
             @Param("complete") boolean complete,
             Pageable pageable
@@ -49,11 +47,11 @@ public interface HabitCompletionRepository extends JpaRepository<HabitCompletion
            JOIN hc.habit h
            JOIN h.user u
            WHERE u.userId = :userId
-           AND h = :habit
+           AND h.habitId = :habitId
            AND hc.complete = :complete
            """)
     long countByHabitAndUserAndComplete(
-            @Param("habit") Habit habit,
+            @Param("habitId") UUID habitId,
             @Param("userId") UUID userId,
             @Param("complete") boolean complete
     );
@@ -64,11 +62,11 @@ public interface HabitCompletionRepository extends JpaRepository<HabitCompletion
            JOIN hc.habit h
            JOIN h.user u
            WHERE u.userId = :userId
-           AND cal = :calendar
+           AND cal.habitCalendarId = :habitCalendarId
            AND hc.complete = :complete
            """)
     long countByCalendarAndUserAndComplete(
-            @Param("calendar") HabitCalendar calendar,
+            @Param("habitCalendarId") UUID habitCalendarId,
             @Param("userId") UUID userId,
             @Param("complete") boolean complete
     );
@@ -143,5 +141,6 @@ public interface HabitCompletionRepository extends JpaRepository<HabitCompletion
     int deleteAllByCreatedAtBefore(@Param("cutoffDate") Instant cutoffDate);
 
     boolean existsByHabit_HabitIdAndHabitCalendar_HabitCalendarId(UUID habitId, UUID calendarId);
+    boolean existsByHabit_User_UserIdAndAndHabitCompletionIdNot(UUID userId, UUID habitCompletionId);
 
 }
