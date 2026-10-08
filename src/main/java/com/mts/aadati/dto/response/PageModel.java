@@ -1,6 +1,7 @@
 package com.mts.aadati.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import org.springframework.data.domain.Page;
@@ -9,6 +10,7 @@ import java.util.List;
 import java.util.function.Function;
 
 @Getter
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class PageModel<T> {
 
     private final List<T> content;
