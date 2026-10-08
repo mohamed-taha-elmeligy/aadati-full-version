@@ -1,4 +1,4 @@
-package com.mts.aadati.engine.configs.scheduling;
+package com.mts.aadati.engine.configs;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
