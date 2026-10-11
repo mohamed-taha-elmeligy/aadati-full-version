@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,12 +37,11 @@ public interface HabitWeekRepository extends JpaRepository<HabitWeek, UUID> {
         """)
     List<HabitCalendar> findHabitCalendarsByWeekId(@Param("weekId") UUID weekId);
 
-    boolean existsByStartWeekOrEndWeek(LocalDate start, LocalDate end);
-
-    boolean existsByWeekNumberAndYear(int weekNumber, int year);
+    boolean existsByStartWeekIn(Collection<LocalDate> startWeeks);
 
     @Modifying
     @Query("DELETE FROM HabitWeek hw WHERE hw.createdAt < :cutoffDate")
     int deleteAllByCreatedAtBefore(@Param("cutoffDate") Instant cutoffDate);
 
+    List<HabitWeek> findAllByStartWeekLessThanEqualAndEndWeekGreaterThanEqual(LocalDate to, LocalDate from);
 }

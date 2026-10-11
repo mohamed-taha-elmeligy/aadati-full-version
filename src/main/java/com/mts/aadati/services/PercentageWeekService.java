@@ -3,7 +3,6 @@ package com.mts.aadati.services;
 import com.mts.aadati.configs.caching.CacheNames;
 import com.mts.aadati.dto.response.PageModel;
 import com.mts.aadati.entities.PercentageWeek;
-import com.mts.aadati.exceptions.exception.DuplicateResourceException;
 import com.mts.aadati.exceptions.exception.InvalidRequestException;
 import com.mts.aadati.exceptions.exception.ResourceNotFoundException;
 import com.mts.aadati.repository.PercentageWeekRepository;
@@ -17,8 +16,13 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -28,25 +32,10 @@ import java.util.UUID;
 public class PercentageWeekService {
 
     private static final String SORT_CREATED_AT = "createdAt";
-    private static final String PERCENTAGE_WEEK_ALREADY_EXISTS = "PercentageWeek already exists";
     private static final String PERCENTAGE_WEEK_NOT_FOUND = "PercentageWeek not found by ";
     private static final String CAN_NOT_BE_NULL = "can't be null";
 
     private final PercentageWeekRepository repository;
-
-    @Transactional
-    @CacheEvict(
-            value = CacheNames.PERCENTAGE_WEEK + CacheNames.PAGE_SUFFIX,
-            allEntries = true
-    )
-    public PercentageWeek addPercentageWeek(PercentageWeek percentageWeek) {
-        if (repository.existsByUser_UserIdAndHabitWeek_WeekId(
-                percentageWeek.getUser().getUserId(),
-                percentageWeek.getHabitWeek().getWeekId()
-        )) throw new DuplicateResourceException(PERCENTAGE_WEEK_ALREADY_EXISTS);
-
-        return repository.save(percentageWeek);
-    }
 
     @Transactional
     @Caching(
@@ -280,4 +269,37 @@ public class PercentageWeekService {
                         new ResourceNotFoundException(PERCENTAGE_WEEK_NOT_FOUND + "id"));
     }
 
+    public Optional<LocalDate> findLatestWeekStart() {
+        return repository.findFirstByOrderByHabitWeek_StartWeekDesc()
+                .map(pw -> pw.getHabitWeek().getStartWeek());
+    }
+
+    public Set<String> findKeysBetween(LocalDate start, LocalDate end) {
+        return repository.findUserIdAndWeekIdBetween(start, end).stream()
+                .map(row -> row[0] + "|" + row[1])
+                .collect(Collectors.toSet());
+    }
+
+    public void addAll(List<PercentageWeek> weeks) {
+        if (weeks.isEmpty()) return;
+        repository.saveAll(weeks);
+    }
+
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.PERCENTAGE_WEEK, allEntries = true),
+            @CacheEvict(value = CacheNames.PERCENTAGE_WEEK + CacheNames.PAGE_SUFFIX, allEntries = true)
+    })
+    public boolean updateRate(UUID userId, LocalDate date, BigDecimal rate) {
+        if (userId == null)
+            throw new InvalidRequestException("User Id " + CAN_NOT_BE_NULL);
+        if (date == null)
+            throw new InvalidRequestException("Date " + CAN_NOT_BE_NULL);
+        if (rate == null)
+            throw new InvalidRequestException("Rate " + CAN_NOT_BE_NULL);
+
+        return repository.findByUserAndWeekOf(userId, date)
+                .map(week -> { week.updateRate(rate); return true; })
+                .orElse(false);
+    }
 }

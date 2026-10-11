@@ -258,4 +258,7 @@ public class HabitTaskService {
                 .orElseThrow(() -> new ResourceNotFoundException(HABIT_TASK_NOT_FOUND + "id"));
     }
 
+    public List<HabitTask> findAllActive() {
+        return repository.findAllByIsActiveTrue();
+    }
 }

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -52,7 +53,7 @@ public interface HabitCalendarRepository extends JpaRepository<HabitCalendar, UU
     @Query("DELETE FROM HabitCalendar hc WHERE hc.createdAt < :cutoffDate")
     int deleteAllByCreatedAtBefore(@Param("cutoffDate") Instant cutoffDate);
 
-    boolean existsByDate(LocalDate date);
+    boolean existsByDateIn(Collection<LocalDate> dates);
 
-    boolean existsByHabitWeek_WeekIdAndDayOfWeek(UUID weekId, DayOfWeek dayOfWeek);
+    List<HabitCalendar> findAllByDateBetween(LocalDate start, LocalDate end);
 }

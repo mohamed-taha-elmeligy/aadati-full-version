@@ -3,7 +3,6 @@ package com.mts.aadati.services;
 import com.mts.aadati.configs.caching.CacheNames;
 import com.mts.aadati.dto.response.PageModel;
 import com.mts.aadati.entities.PercentageDay;
-import com.mts.aadati.exceptions.exception.DuplicateResourceException;
 import com.mts.aadati.exceptions.exception.InvalidRequestException;
 import com.mts.aadati.exceptions.exception.ResourceNotFoundException;
 import com.mts.aadati.repository.PercentageDayRepository;
@@ -16,9 +15,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -33,28 +36,6 @@ public class PercentageDayService {
     private static final String CAN_NOT_BE_NULL = "can't be null";
 
     private final PercentageDayRepository repository;
-
-    @Transactional
-    @Caching(
-            evict = {
-                    @CacheEvict(
-                            value = CacheNames.PERCENTAGE_DAY + CacheNames.PAGE_SUFFIX,
-                            allEntries = true
-                    ),
-                    @CacheEvict(
-                            value = CacheNames.PERCENTAGE_DAY + CacheNames.LIST_SUFFIX,
-                            allEntries = true
-                    )
-            }
-    )
-    public PercentageDay addPercentageDay(PercentageDay percentageDay) {
-        if (repository.existsByUser_UserIdAndHabitCalendar_HabitCalendarId(
-                percentageDay.getUser().getUserId(),
-                percentageDay.getHabitCalendar().getHabitCalendarId()
-        )) throw new DuplicateResourceException(PERCENTAGE_DAY_ALREADY_EXISTS);
-
-        return repository.save(percentageDay);
-    }
 
     @Transactional
     @Caching(
@@ -102,6 +83,22 @@ public class PercentageDayService {
         int deletedCount = repository.deleteAllByCreatedAtBefore(cutoffDate);
         log.info("Cleaned up {} PercentageDay records created before {}", deletedCount, cutoffDate);
         return deletedCount;
+    }
+
+    public List<PercentageDay> findByUserAndWeekOf(UUID userId, LocalDate date) {
+        return repository.findByUserAndWeekOf(userId, date);
+    }
+
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.PERCENTAGE_DAY, allEntries = true),
+            @CacheEvict(value = CacheNames.PERCENTAGE_DAY + CacheNames.PAGE_SUFFIX, allEntries = true),
+            @CacheEvict(value = CacheNames.PERCENTAGE_DAY + CacheNames.LIST_SUFFIX, allEntries = true)
+    })
+    public boolean updateRate(UUID userId, LocalDate date, BigDecimal rate) {
+        return repository.findByUser_UserIdAndHabitCalendar_Date(userId, date)
+                .map(day -> { day.updateRate(rate); return true; })
+                .orElse(false);
     }
 
     @Cacheable(
@@ -276,4 +273,20 @@ public class PercentageDayService {
                         new ResourceNotFoundException(PERCENTAGE_DAY_NOT_FOUND + "id"));
     }
 
+    // Service
+    public Optional<LocalDate> findLatestDate() {
+        return repository.findFirstByOrderByHabitCalendar_DateDesc()
+                .map(pd -> pd.getHabitCalendar().getDate());
+    }
+
+    public Set<String> findKeysBetween(LocalDate start, LocalDate end) {
+        return repository.findUserIdAndDateBetween(start, end).stream()
+                .map(row -> row[0] + "|" + row[1])
+                .collect(Collectors.toSet());
+    }
+
+    public void addAll(List<PercentageDay> days) {
+        if (days.isEmpty()) return;
+        repository.saveAll(days);
+    }
 }

@@ -50,4 +50,5 @@ public interface HabitTaskRepository extends JpaRepository<HabitTask, UUID> {
     long countByUser_UserIdAndTaskPriorityLevel_TaskPriorityLevelIdAndIsActiveTrue(UUID userId, UUID priorityLevelId);
     long countByUser_UserIdAndHabitCategory_HabitCategoryIdAndIsActiveTrue(UUID userId, UUID categoryId);
 
+    List<HabitTask> findAllByIsActiveTrue();
 }

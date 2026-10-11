@@ -142,4 +142,7 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found by id"));
     }
 
+    public List<User> getAllUsers() {
+        return userRepository.findAllByEmailVerifiedTrue();
+    }
 }

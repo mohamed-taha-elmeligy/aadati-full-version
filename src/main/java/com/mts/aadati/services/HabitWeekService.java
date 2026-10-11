@@ -22,8 +22,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -52,14 +51,26 @@ public class HabitWeekService {
                     )
             }
     )
-    public HabitWeek addWeek(HabitWeek week){
-        if (repository.existsByStartWeekOrEndWeek(week.getStartWeek(),week.getEndWeek()))
-            throw new DuplicateResourceException(HABIT_WEEK_ALREADY_EXISTS);
+    public void addAll(List<HabitWeek> weeks) {
+        if (weeks.isEmpty())
+            return;
 
-        if (repository.existsByWeekNumberAndYear(week.getWeekNumber(), week.getYear()))
-            throw new DuplicateResourceException(HABIT_WEEK_ALREADY_EXISTS);
+        Set<LocalDate> startWeeks = new HashSet<>();
+        Set<String> weekKeys = new HashSet<>();
 
-        return repository.save(week);
+        for (HabitWeek w : weeks) {
+            if (!startWeeks.add(w.getStartWeek()))
+                throw new DuplicateResourceException(HABIT_WEEK_ALREADY_EXISTS + " with start " + w.getStartWeek());
+
+            String key = w.getWeekNumber() + "-" + w.getYear();
+            if (!weekKeys.add(key))
+                throw new DuplicateResourceException(HABIT_WEEK_ALREADY_EXISTS + " with week " + key);
+        }
+
+        if (repository.existsByStartWeekIn(startWeeks))
+            throw new DuplicateResourceException(HABIT_WEEK_ALREADY_EXISTS + " with start week");
+
+        repository.saveAll(weeks);
     }
 
     @Transactional
@@ -178,6 +189,14 @@ public class HabitWeekService {
         return repository.findFirstByOrderByEndWeekDesc()
                 .orElseThrow(()-> new ResourceNotFoundException(HABIT_WEEK_NOT_FOUND + "any week"));
     }
+    @Cacheable(
+            value = CacheNames.HABIT_WEEK,
+            key = "#root.methodName",
+            sync = true
+    )
+    public Optional<HabitWeek> findLatest() {
+        return repository.findFirstByOrderByEndWeekDesc();
+    }
 
     @Cacheable(
             value = CacheNames.HABIT_WEEK + CacheNames.LIST_SUFFIX,
@@ -189,5 +208,21 @@ public class HabitWeekService {
             throw new InvalidRequestException("Week Id " + CAN_NOT_BE_NULL);
 
         return repository.findHabitCalendarsByWeekId(weekId);
+    }
+
+    @Cacheable(
+            value = CacheNames.HABIT_WEEK + CacheNames.LIST_SUFFIX,
+            key = "#from + '-' + #to + '-' + #root.methodName",
+            sync = true
+    )
+    public List<HabitWeek> findAllBetween(LocalDate from, LocalDate to){
+        if (from == null)
+            throw new InvalidRequestException("from week date " + CAN_NOT_BE_NULL);
+        if (to == null)
+            throw new InvalidRequestException("to week date " + CAN_NOT_BE_NULL);
+        if (from.isAfter(to))
+            throw new InvalidRequestException("Start Week date can't be after end week");
+
+        return repository.findAllByStartWeekLessThanEqualAndEndWeekGreaterThanEqual(to,from);
     }
 }

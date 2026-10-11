@@ -2,10 +2,13 @@ package com.mts.aadati.services;
 
 import com.mts.aadati.dto.request.TaskCompletionRequest;
 import com.mts.aadati.dto.response.PageModel;
+import com.mts.aadati.entities.HabitTask;
 import com.mts.aadati.entities.TaskCompletion;
+import com.mts.aadati.enums.RecurrenceType;
 import com.mts.aadati.exceptions.exception.DuplicateResourceException;
 import com.mts.aadati.exceptions.exception.InvalidRequestException;
 import com.mts.aadati.exceptions.exception.ResourceNotFoundException;
+import com.mts.aadati.repository.HabitTaskRepository;
 import com.mts.aadati.repository.TaskCompletionRepository;
 import com.mts.aadati.utils.pagination.PageableUtils;
 import lombok.RequiredArgsConstructor;
@@ -16,8 +19,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -32,21 +40,13 @@ public class TaskCompletionService {
     private static final String CAN_NOT_BE_NULL = "can't be null";
 
     private final TaskCompletionRepository repository;
-
-    @Transactional
-    public TaskCompletion addCompletion(TaskCompletion completion) {
-        if (repository.existsByHabitTaskAndHabitCalendar(
-                completion.getHabitTask(),
-                completion.getHabitCalendar())
-        )
-            throw new DuplicateResourceException(TASK_COMPLETION_ALREADY_EXISTS);
-
-        return repository.save(completion);
-    }
+    private final HabitTaskRepository habitTaskRepository;
 
     @Transactional
     public TaskCompletion updateCompletion( UUID userId, TaskCompletionRequest request) {
         TaskCompletion completion = getCompletionOrThrow(request.taskCompletionId());
+
+        HabitTask task = completion.getHabitTask();
 
         if (repository.existsByHabitTask_User_UserIdAndAndTaskCompletionIdNot(
                 userId,
@@ -55,8 +55,19 @@ public class TaskCompletionService {
             throw new DuplicateResourceException(TASK_COMPLETION_ALREADY_EXISTS);
 
         completion.setComplete(request.complete());
+        TaskCompletion saved = repository.save(completion);
 
-        return repository.save(completion);
+        if (task.getRecurrenceType() == RecurrenceType.ONCE) {
+            if (request.complete() && task.isActive()) {
+                task.deactivate();
+                habitTaskRepository.save(task);
+            } else if (!request.complete() && !task.isActive()) {
+                task.setActive(false);
+                habitTaskRepository.save(task);
+            }
+        }
+
+        return saved;
     }
 
     @Transactional
@@ -189,5 +200,25 @@ public class TaskCompletionService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException(TASK_COMPLETION_NOT_FOUND + "id")
                 );
+    }
+
+    public Optional<LocalDate> findLatestDate() {
+        return repository.findFirstByOrderByHabitCalendar_DateDesc()
+                .map(tc -> tc.getHabitCalendar().getDate());
+    }
+
+    public boolean existsByHabitTask(HabitTask habitTask) {
+        return repository.existsByHabitTask(habitTask);
+    }
+
+    public Set<String> findKeysBetween(LocalDate start, LocalDate end) {
+        return repository.findHabitTaskIdAndDateBetween(start, end).stream()
+                .map(row -> row[0] + "|" + row[1])
+                .collect(Collectors.toSet());
+    }
+
+    public void addAll(List<TaskCompletion> completions) {
+        if (completions.isEmpty()) return;
+        repository.saveAll(completions);
     }
 }

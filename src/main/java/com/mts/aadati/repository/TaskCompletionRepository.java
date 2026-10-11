@@ -10,6 +10,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -85,5 +87,15 @@ public interface TaskCompletionRepository extends JpaRepository<TaskCompletion, 
     boolean existsByHabitTask_User_UserIdAndAndTaskCompletionIdNot(
             UUID userId, UUID taskCompletionId);
 
+    Optional<TaskCompletion> findFirstByOrderByHabitCalendar_DateDesc();
+
+    boolean existsByHabitTask(HabitTask habitTask);
+
+    @Query("""
+    SELECT tc.habitTask.habitTaskId, tc.habitCalendar.date
+    FROM TaskCompletion tc
+    WHERE tc.habitCalendar.date BETWEEN :start AND :end
+    """)
+    List<Object[]> findHabitTaskIdAndDateBetween(@Param("start") LocalDate start, @Param("end") LocalDate end);
 
 }

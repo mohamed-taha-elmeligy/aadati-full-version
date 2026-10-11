@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -60,4 +61,21 @@ public interface PercentageDayRepository extends JpaRepository<PercentageDay, UU
     @Query("DELETE FROM PercentageDay pd WHERE pd.createdAt < :cutoffDate")
     int deleteAllByCreatedAtBefore(@Param("cutoffDate") Instant cutoffDate);
 
+    Optional<PercentageDay> findByUser_UserIdAndHabitCalendar_Date(UUID userId, LocalDate date);
+
+    @Query("""
+        select p from PercentageDay p
+        where p.user.userId = :userId
+          and p.habitCalendar.habitWeek.weekId = (
+              select c.habitWeek.weekId from HabitCalendar c where c.date = :date)
+        """)
+    List<PercentageDay> findByUserAndWeekOf(@Param("userId") UUID userId, @Param("date") LocalDate date);
+
+    Optional<PercentageDay> findFirstByOrderByHabitCalendar_DateDesc();
+    @Query("""
+        SELECT pd.user.userId, pd.habitCalendar.date
+        FROM PercentageDay pd
+        WHERE pd.habitCalendar.date BETWEEN :start AND :end
+        """)
+    List<Object[]> findUserIdAndDateBetween(@Param("start") LocalDate start, @Param("end") LocalDate end);
 }

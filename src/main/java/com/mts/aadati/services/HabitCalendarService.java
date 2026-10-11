@@ -16,8 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.*;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -42,15 +41,20 @@ public class HabitCalendarService {
                     @CacheEvict(value = CacheNames.HABIT_CALENDAR + CacheNames.PAGE_SUFFIX, allEntries = true)
             }
     )
-    public HabitCalendar addCalendar(HabitCalendar calendar) {
-        if (repository.existsByDate(calendar.getDate()))
+    public void addAll(List<HabitCalendar> calendars) {
+        if (calendars.isEmpty())
+            return;
+
+        Set<LocalDate> dates = new HashSet<>();
+        for (HabitCalendar c : calendars) {
+            if (!dates.add(c.getDate()))
+                throw new DuplicateResourceException(HABIT_CALENDAR_ALREADY_EXISTS + " with date " + c.getDate());
+        }
+
+        if (repository.existsByDateIn(dates))
             throw new DuplicateResourceException(HABIT_CALENDAR_ALREADY_EXISTS + " with date");
 
-        if (repository.existsByHabitWeek_WeekIdAndDayOfWeek(
-                calendar.getHabitWeek().getWeekId(), calendar.getDayOfWeek()))
-            throw new DuplicateResourceException(HABIT_CALENDAR_ALREADY_EXISTS + " with week and day");
-
-        return repository.save(calendar);
+        repository.saveAll(calendars);
     }
 
     @Transactional
@@ -140,4 +144,11 @@ public class HabitCalendarService {
                 .orElseThrow(()-> new ResourceNotFoundException("No HabitCalendar records exist"));
     }
 
+    public Optional<HabitCalendar> findLatest() {
+        return repository.findFirstByOrderByDateDesc();
+    }
+
+    public List<HabitCalendar> findBetween(LocalDate start, LocalDate end) {
+        return repository.findAllByDateBetween(start, end);
+    }
 }

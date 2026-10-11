@@ -65,6 +65,19 @@ public class HabitDayWeekService {
         );
     }
 
+    @Cacheable(
+            value = CacheNames.HABIT + CacheNames.LIST_SUFFIX,
+            key = "#day + '-' + #root.methodName",
+            sync = true
+    )
+    public List<Habit> findHabitsByDayOfWeek(
+            DayOfWeek day){
+        if (day == null)
+            throw new InvalidRequestException("DayOfWeek " + CAN_NOT_BE_NULL);
+
+        return repository.findHabitsByDayOfWeekAndHabits_IsActiveTrue(day);
+    }
+
     public long countHabitsByDayAndUser(DayOfWeek day, UUID userId){
         if (day == null)
             throw new InvalidRequestException("DayOfWeek " + CAN_NOT_BE_NULL);

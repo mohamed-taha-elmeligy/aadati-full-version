@@ -16,8 +16,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -32,15 +37,6 @@ public class HabitCompletionService {
     private static final String CAN_NOT_BE_NULL = "can't be null";
 
     private final HabitCompletionRepository repository;
-
-    @Transactional
-    public HabitCompletion addHabitCompletion(HabitCompletion completion) {
-        if (repository.existsByHabit_HabitIdAndHabitCalendar_HabitCalendarId(
-                completion.getHabit().getHabitId(), completion.getHabitCalendar().getHabitCalendarId()
-        )) throw new DuplicateResourceException(HABIT_COMPLETION_ALREADY_EXISTS);
-
-        return repository.save(completion);
-    }
 
     @Transactional
     public HabitCompletion updateHabitCompletion(UUID userId, HabitCompletionRequest request) {
@@ -63,6 +59,10 @@ public class HabitCompletionService {
         int deletedCount = repository.deleteAllByCreatedAtBefore(cutoffDate);
         log.info("Cleaned up {} HabitCompletion records created before {}", deletedCount, cutoffDate);
         return deletedCount;
+    }
+
+    public List<HabitCompletion> findByUserAndDate(UUID userId, LocalDate date) {
+        return repository.findByUserAndDate(userId, date);
     }
 
     public HabitCompletion findByCompletionIdAndUser(UUID completionId, UUID userId) {
@@ -245,5 +245,21 @@ public class HabitCompletionService {
 
         return repository.findById(completionId)
                 .orElseThrow(() -> new ResourceNotFoundException(HABIT_COMPLETION_NOT_FOUND + "id"));
+    }
+
+    public Optional<LocalDate> findLatestDate() {
+        return repository.findFirstByOrderByHabitCalendar_DateDesc()
+                .map(hc -> hc.getHabitCalendar().getDate());
+    }
+
+    public Set<String> findKeysBetween(LocalDate start, LocalDate end) {
+        return repository.findHabitIdAndDateBetween(start, end).stream()
+                .map(row -> row[0] + "|" + row[1])
+                .collect(Collectors.toSet());
+    }
+
+    public void addAll(List<HabitCompletion> completions) {
+        if (completions.isEmpty()) return;
+        repository.saveAll(completions);
     }
 }

@@ -16,13 +16,17 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmail(String email);
+
     @Query("SELECT u FROM User u LEFT JOIN FETCH u.roles WHERE u.username = :username")
     Optional<User> findByUsername(@Param("username") String username);
+
     boolean existsByEmail(String email);
-    boolean existsByUsername(String username);
+
     boolean existsByEmailOrUsername(String email, String username);
+
     @Query("""
-        SELECT CASE WHEN COUNT(u) > 0 THEN TRUE ELSE FALSE END
+
+            SELECT CASE WHEN COUNT(u) > 0 THEN TRUE ELSE FALSE END
         FROM User u
         WHERE (u.email = :email OR u.username = :username)
         AND u.userId <> :userId
@@ -52,4 +56,5 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             "FROM Role r JOIN r.users u WHERE u.userId = :userId AND r.name = :roleName")
     boolean userHasRole(@Param("userId") UUID userId, @Param("roleName") String roleName);
 
+    List<User> findAllByEmailVerifiedTrue();
 }
