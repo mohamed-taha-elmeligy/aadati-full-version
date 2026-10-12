@@ -28,10 +28,10 @@ public class TaskPriorityLevel {
     private String name;
 
     @Setter
-    @Column(name = "color", nullable = false, length = 7 , unique = true)
+    @Column(name = "color", nullable = false, length = 7)
     private String color;
 
-    @Column(name = "is_deleted")
+    @Column(name = "is_deleted", nullable = false)
     @Setter
     private boolean isDeleted = false;
 

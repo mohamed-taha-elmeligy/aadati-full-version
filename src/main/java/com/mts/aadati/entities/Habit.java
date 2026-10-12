@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.mts.aadati.configs.auditing.Auditing;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.NaturalId;
 import java.util.*;
 
 @NoArgsConstructor
@@ -25,7 +24,6 @@ public class Habit extends Auditing {
 
     @Column(name = "title", length = 50, nullable = false)
     @Setter
-    @NaturalId
     private String title;
 
     @Column(name = "point", nullable = false)
@@ -60,8 +58,7 @@ public class Habit extends Auditing {
     private HabitCategory habitCategory ;
 
     @Setter
-    @ManyToMany(cascade = {CascadeType.DETACH,CascadeType.MERGE,CascadeType.PERSIST,CascadeType.REFRESH},
-    fetch = FetchType.LAZY )
+    @ManyToMany(fetch = FetchType.LAZY )
     @JoinTable(name = "habit_day_of_week",
             joinColumns = @JoinColumn(name = "habit_id" ,nullable = false),
             inverseJoinColumns = @JoinColumn(name ="day_week_id",nullable = false ))

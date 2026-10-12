@@ -26,7 +26,7 @@ public class HabitCompletion {
     private Instant completedAt;
 
 
-    @Column(name = "created_at"  )
+    @Column(name = "created_at" , nullable = false )
     private Instant createdAt;
 
     // =====  Relationship =====

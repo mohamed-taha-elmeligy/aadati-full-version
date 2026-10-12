@@ -44,7 +44,7 @@ public class HabitTask extends Auditing {
     @Setter
     private RecurrenceType recurrenceType;
 
-    @Column(name = "isActive", nullable = false)
+    @Column(name = "is_active", nullable = false)
     @Setter
     private boolean isActive = true;
 

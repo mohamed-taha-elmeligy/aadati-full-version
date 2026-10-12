@@ -59,7 +59,7 @@ public class User extends Auditing {
     private final List<PercentageDay> percentageDays = new ArrayList<>();
 
     @Setter
-    @ManyToMany(cascade ={CascadeType.PERSIST,CascadeType.MERGE,CascadeType.REFRESH}, fetch = FetchType.EAGER )
+    @ManyToMany( fetch = FetchType.EAGER )
     @JoinTable(name = "user_role",
             joinColumns = @JoinColumn(name = "user_id" ,nullable = false),
             inverseJoinColumns = @JoinColumn(name ="role_id",nullable = false ))

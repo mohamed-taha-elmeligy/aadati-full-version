@@ -15,7 +15,6 @@ import java.util.List;
 public class HabitDayWeek {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "day_week_id" , nullable = false , updatable = false)
     private long dayWeekId ;
 
@@ -29,7 +28,8 @@ public class HabitDayWeek {
     private final List<Habit> habits =new ArrayList<>();
 
     public HabitDayWeek (@NonNull DayOfWeek dayOfWeek){
-        this.dayOfWeek = dayOfWeek ;
+        this.dayWeekId = dayOfWeek.getValue();
+        this.dayOfWeek = dayOfWeek;
     }
 
 }

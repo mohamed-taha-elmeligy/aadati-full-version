@@ -12,7 +12,9 @@ import java.util.UUID;
 @NoArgsConstructor
 @Getter
 @Entity @Table(name = "habit_week" ,
-        uniqueConstraints = @UniqueConstraint(columnNames = {"week_number","year_number"}),
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_percentage_week_user_week",
+                columnNames = {"week_number","year_number"}),
         indexes = {
         @Index(name = "idx_habit_week_year_week", columnList = "year_number, week_number"),
         @Index(name = "idx_habit_week_date_range", columnList = "start_week, end_week"),

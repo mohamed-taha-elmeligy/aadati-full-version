@@ -67,7 +67,6 @@ public class HabitCalendar {
     }
 
     @PrePersist
-    @PreUpdate
     private void onCreate() {
         createdAt = Instant.now();
     }

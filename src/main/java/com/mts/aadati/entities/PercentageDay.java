@@ -10,7 +10,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "percentage_day" , uniqueConstraints = @UniqueConstraint(
-        name = "uk_user_calendar",
+        name = "uk_day_user_calendar",
         columnNames = {"user_id", "habit_calendar_id"})
         , indexes = {
         @Index(name = "inx_percentage_day_rate",columnList = "rate")

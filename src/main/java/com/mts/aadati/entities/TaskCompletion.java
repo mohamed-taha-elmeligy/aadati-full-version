@@ -4,9 +4,7 @@ package com.mts.aadati.entities;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.UUID;
 
 @NoArgsConstructor
@@ -27,8 +25,8 @@ public class TaskCompletion {
     @Column(name = "completed_at" )
     private Instant completedAt;
 
-    @Column(name = "created_at")
-    private LocalDate createdAt;
+    @Column(name = "created_at",nullable = false)
+    private Instant createdAt;
 
     // =====  Relationship =====
     @JoinColumn(name = "habit_calendar_id" , nullable = false)
@@ -74,7 +72,7 @@ public class TaskCompletion {
         } else if (!this.complete) {
             this.completedAt = null;
         }
-        this.createdAt = LocalDate.now(Clock.systemDefaultZone());
+        this.createdAt = Instant.now();
     }
 
 }
