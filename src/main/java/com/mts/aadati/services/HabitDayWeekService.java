@@ -75,7 +75,7 @@ public class HabitDayWeekService {
         if (day == null)
             throw new InvalidRequestException("DayOfWeek " + CAN_NOT_BE_NULL);
 
-        return repository.findHabitsByDayOfWeekAndHabits_IsActiveTrue(day);
+        return repository.findActiveHabitsByDayOfWeek(day);
     }
 
     public long countHabitsByDayAndUser(DayOfWeek day, UUID userId){

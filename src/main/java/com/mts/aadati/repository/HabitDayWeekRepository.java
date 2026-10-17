@@ -48,5 +48,9 @@ public interface HabitDayWeekRepository extends JpaRepository<HabitDayWeek, Long
 
     boolean existsByDayOfWeek(DayOfWeek day);
 
-    List<Habit> findHabitsByDayOfWeekAndHabits_IsActiveTrue(DayOfWeek day);
-}
+    @Query("""
+        select h from HabitDayWeek d
+        join d.habits h
+        where d.dayOfWeek = :day and h.isActive = true
+        """)
+    List<Habit> findActiveHabitsByDayOfWeek(@Param("day") DayOfWeek day);}
