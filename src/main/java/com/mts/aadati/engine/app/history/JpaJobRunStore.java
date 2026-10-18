@@ -85,5 +85,8 @@ public class JpaJobRunStore implements JobRunStore {
                 .orElseThrow(() -> new IllegalStateException("JobRun " + runId + " not found"));
     }
 
-
+    @Override
+    public int deleteRunsOlderThan(Instant cutoff) {
+        return repository.deleteAllByStartedAtBefore(cutoff);
+    }
 }

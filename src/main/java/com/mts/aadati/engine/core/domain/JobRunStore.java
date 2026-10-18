@@ -1,5 +1,6 @@
 package com.mts.aadati.engine.core.domain;
 
+import java.time.Instant;
 import java.util.Optional;
 
 public interface JobRunStore {
@@ -13,4 +14,6 @@ public interface JobRunStore {
     Optional<JobRun> lastSuccess(String jobId);
 
     int markStaleRunsAsFailed();
+
+    int deleteRunsOlderThan(Instant cutoff);
 }
