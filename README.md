@@ -34,7 +34,7 @@ The goal wasn't to rewrite the project from scratch — it was to take a working
 
 - **Being honest about what's actually needed.** Not every "best practice" got applied — several were deliberately rejected (e.g. `createdBy`/`updatedBy` auditing, a dedicated rate-limit exception) because the project has no real use case for them yet. Adding infrastructure for a scenario that doesn't exist is its own kind of technical debt. The same honesty applies to this README: features below are described as they actually exist today, not as they're planned to exist.
 
-The result is documented as a paper trail, not just a diff: [`REFACTORING_LOG.md`](./REFACTORING_LOG.md) covers what changed and why, and [`REFACTORING_BACKLOG.md`](./Aadati_BACKLOG.md) tracks what's still in progress.
+The result is documented as a paper trail, not just a diff: [`REFACTORING_LOG.md`](./REFACTORING_LOG.md) covers what changed and why, and [`Aadati_BACKLOG.md`](./Aadati_BACKLOG.md) tracks what's still in progress.
 
 ### Core Features
 
@@ -109,7 +109,7 @@ By default the app runs under the `dev` Spring profile (H2 in-memory database, v
 
 ## Project Status
 
-This project is under active development: core feature work and refactoring are both ongoing, with the orchestration engine being the current focus. See [`REFACTORING_BACKLOG.md`](./Aadati_BACKLOG.md) for what's done and what's still in progress, and [`REFACTORING_LOG.md`](./REFACTORING_LOG.md) for the history of everything already shipped.
+This project is under active development: core feature work and refactoring are both ongoing, with the orchestration engine being the current focus. See [`Aadati_BACKLOG.md`](./Aadati_BACKLOG.md) for what's done and what's still in progress, and [`REFACTORING_LOG.md`](./REFACTORING_LOG.md) for the history of everything already shipped.
 
 ---
 
