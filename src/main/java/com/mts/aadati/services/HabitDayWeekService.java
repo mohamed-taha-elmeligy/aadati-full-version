@@ -30,7 +30,19 @@ public class HabitDayWeekService {
     private final HabitDayWeekRepository repository;
 
     @Transactional
-    @CacheEvict(allEntries = true)
+    @Caching(
+            evict = {
+                    @CacheEvict(
+                            value = CacheNames.HABIT_DAY_WEEK + CacheNames.LIST_SUFFIX ,
+                            allEntries = true
+                    ),
+                    @CacheEvict(
+                            value = CacheNames.HABIT_DAY_WEEK + CacheNames.PAGE_SUFFIX ,
+                            allEntries = true
+                    )
+            }
+
+    )
     public HabitDayWeek addDay(HabitDayWeek dayWeek){
         if (repository.existsByDayOfWeek(dayWeek.getDayOfWeek()))
             throw new DuplicateResourceException(DAY_ALREADY_EXISTS);

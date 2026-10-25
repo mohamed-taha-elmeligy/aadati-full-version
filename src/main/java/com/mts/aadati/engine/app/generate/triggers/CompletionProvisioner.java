@@ -1,11 +1,13 @@
 package com.mts.aadati.engine.app.generate.triggers;
 
 import com.mts.aadati.engine.app.generate.common.TaskRecurrenceMatcher;
+import com.mts.aadati.engine.app.generate.triggers.bridges.HabitPointChanged;
 import com.mts.aadati.entities.*;
 import com.mts.aadati.services.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -21,6 +23,7 @@ public class CompletionProvisioner {
     private final HabitService habitService;
     private final HabitDayWeekService habitDayWeekService;
     private final HabitCompletionService habitCompletionService;
+    private final Clock clock;
 
     public void ensureForTask(UUID habitTaskId, LocalDate date) {
         HabitTask task = taskService.getHabitTaskOrThrow(habitTaskId);
@@ -44,4 +47,9 @@ public class CompletionProvisioner {
         calculation.recalculateWeek(habit.getUser().getUserId(), date);
     }
 
+    public void onHabitPointChanged(HabitPointChanged event) {
+        LocalDate today = LocalDate.now(clock);
+        calculation.recalculateDay(event.userId(), today);
+        calculation.recalculateWeek(event.userId(), today);
+    }
 }

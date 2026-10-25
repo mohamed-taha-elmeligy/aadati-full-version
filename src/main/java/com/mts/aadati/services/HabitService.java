@@ -5,6 +5,7 @@ import com.mts.aadati.dto.mapper.HabitMapper;
 import com.mts.aadati.dto.request.HabitRequest;
 import com.mts.aadati.dto.response.PageModel;
 import com.mts.aadati.engine.app.generate.triggers.bridges.HabitCreated;
+import com.mts.aadati.engine.app.generate.triggers.bridges.HabitPointChanged;
 import com.mts.aadati.entities.Habit;
 import com.mts.aadati.entities.HabitCategory;
 import com.mts.aadati.entities.HabitDayWeek;
@@ -90,12 +91,14 @@ public class HabitService {
     )
     public Habit updateHabit(UUID habitId, UUID userId, HabitRequest request) {
         Habit habit = getHabitOrThrow(habitId, userId);
+        double oldPoint = habit.getPoint();
 
         if (repository.existsByTitleAndUser_UserIdAndHabitIdNot(request.title(), userId, habitId))
             throw new DuplicateResourceException(HABIT_ALREADY_EXISTS);
 
         if (!categoryRepository.existsByHabitCategoryIdAndIsDeletedFalse(request.habitCategoryId()))
             throw new ResourceNotFoundException(HABIT_CATEGORY_NOT_FOUND_OR_INACTIVE);
+
 
         HabitCategory category = categoryRepository.getReferenceById(request.habitCategoryId());
 
@@ -105,7 +108,18 @@ public class HabitService {
 
         mapper.update(request,category,days, habit);
 
-        return repository.save(habit);
+        Habit saved = repository.save(habit);
+
+        if (oldPoint != request.point()) {
+            eventPublisher.publishEvent(new HabitPointChanged(
+                    saved.getHabitId(),
+                    saved.getUser().getUserId(),
+                    oldPoint,
+                    request.point()
+            ));
+        }
+
+        return saved;
     }
 
     @Transactional

@@ -2,6 +2,7 @@ package com.mts.aadati.engine.app.generate.triggers;
 
 import com.mts.aadati.engine.app.generate.triggers.bridges.CompletionChanged;
 import com.mts.aadati.engine.app.generate.triggers.bridges.HabitCreated;
+import com.mts.aadati.engine.app.generate.triggers.bridges.HabitPointChanged;
 import com.mts.aadati.engine.app.generate.triggers.bridges.HabitTaskCreated;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +44,14 @@ public class ProvisioningTrigger {
             calculation.recalculateDay(e.userId(), e.date());
             calculation.recalculateWeek(e.userId(), e.date());
         });
+    }
+
+    @Async
+    @TransactionalEventListener(phase = AFTER_COMMIT)
+    public void on(HabitPointChanged e) {
+        safely(()->
+                provisioner.onHabitPointChanged(e)
+        );
     }
 
     private void safely(Runnable r) {
