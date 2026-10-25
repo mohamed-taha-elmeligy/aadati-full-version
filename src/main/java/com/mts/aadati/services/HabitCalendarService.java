@@ -151,4 +151,9 @@ public class HabitCalendarService {
     public List<HabitCalendar> findBetween(LocalDate start, LocalDate end) {
         return repository.findAllByDateBetween(start, end);
     }
+
+    public HabitCalendar findFirstByDateOrThrow(LocalDate date) {
+        return repository.findFirstByDate(date)
+                .orElseThrow(()-> new ResourceNotFoundException("No HabitCalendar records exist"));
+    }
 }

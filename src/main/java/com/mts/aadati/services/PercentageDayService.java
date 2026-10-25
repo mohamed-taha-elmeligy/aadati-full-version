@@ -31,7 +31,6 @@ import java.util.stream.Collectors;
 public class PercentageDayService {
 
     private static final String SORT_CREATED_AT = "createdAt";
-    private static final String PERCENTAGE_DAY_ALREADY_EXISTS = "PercentageDay already exists";
     private static final String PERCENTAGE_DAY_NOT_FOUND = "PercentageDay not found by ";
     private static final String CAN_NOT_BE_NULL = "can't be null";
 
@@ -288,5 +287,10 @@ public class PercentageDayService {
     public void addAll(List<PercentageDay> days) {
         if (days.isEmpty()) return;
         repository.saveAll(days);
+    }
+
+    public void save(PercentageDay percentageDay) {
+        if (percentageDay == null) return;
+        repository.save(percentageDay);
     }
 }

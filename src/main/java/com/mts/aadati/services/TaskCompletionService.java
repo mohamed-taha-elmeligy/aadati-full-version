@@ -221,4 +221,12 @@ public class TaskCompletionService {
         if (completions.isEmpty()) return;
         repository.saveAll(completions);
     }
+
+    public boolean existsByHabitTaskAndCalendar(UUID habitTaskId, UUID habitCalendarId) {
+        return repository.existsByHabitTask_HabitTaskIdAndHabitCalendar_HabitCalendarId(habitTaskId, habitCalendarId);
+    }
+
+    public TaskCompletion create(TaskCompletion completion) {
+        return repository.save(completion);
+    }
 }

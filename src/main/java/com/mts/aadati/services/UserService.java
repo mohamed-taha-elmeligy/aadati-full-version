@@ -25,17 +25,42 @@ import java.util.*;
 @CacheConfig(cacheNames = CacheNames.USER)
 public class UserService {
 
+    private static final String DEFAULT_ROLE = "ROLE_USER";
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
+    private final RoleService roleService;
 
     @Transactional
     public User addUser(User user) {
+        return createUser(user);
+    }
+
+    @Transactional
+    public User addUser(User user, List<UUID> roleIds) {
+        if (roleIds == null || roleIds.isEmpty())
+            throw new InvalidRequestException("A user must have at least one role");
+
+        List<Role> roles = roleIds.stream()
+                .distinct()
+                .map(roleService::getRoleOrThrow)
+                .toList();
+
+        user.setRoles(new ArrayList<>(roles));
+        return createUser(user);
+    }
+
+    @Transactional
+    public User registerUser(User user) {
+        user.setRoles(new ArrayList<>(List.of(roleService.findByName(DEFAULT_ROLE))));
+        return createUser(user);
+    }
+
+    private User createUser(User user) {
         if (userRepository.existsByEmailOrUsername(user.getEmail(), user.getUsername()))
             throw new DuplicateResourceException("Email or username already exists");
 
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-
         return userRepository.save(user);
     }
 
@@ -134,7 +159,7 @@ public class UserService {
                 .anyMatch(role -> role.getName().equalsIgnoreCase(roleName));
     }
 
-    private User getUserOrThrow(UUID userId) {
+    public User getUserOrThrow(UUID userId) {
         if(userId == null)
             throw new InvalidRequestException("User ID can't be null");
 

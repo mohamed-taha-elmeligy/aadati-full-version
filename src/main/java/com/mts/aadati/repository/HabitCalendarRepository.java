@@ -56,4 +56,4 @@ public interface HabitCalendarRepository extends JpaRepository<HabitCalendar, UU
     boolean existsByDateIn(Collection<LocalDate> dates);
 
     List<HabitCalendar> findAllByDateBetween(LocalDate start, LocalDate end);
-}
+    Optional<HabitCalendar> findFirstByDate(LocalDate date);}

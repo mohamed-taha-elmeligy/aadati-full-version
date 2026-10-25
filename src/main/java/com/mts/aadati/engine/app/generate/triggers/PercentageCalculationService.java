@@ -1,10 +1,7 @@
-package com.mts.aadati.engine.app.calculate;
+package com.mts.aadati.engine.app.generate.triggers;
 
-import com.mts.aadati.entities.HabitCompletion;
-import com.mts.aadati.entities.PercentageDay;
-import com.mts.aadati.services.HabitCompletionService;
-import com.mts.aadati.services.PercentageDayService;
-import com.mts.aadati.services.PercentageWeekService;
+import com.mts.aadati.entities.*;
+import com.mts.aadati.services.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,15 +21,19 @@ public class PercentageCalculationService {
     private final HabitCompletionService completionService;
     private final PercentageDayService dayService;
     private final PercentageWeekService weekService;
+    private final HabitCalendarService calendarService;
+    private final UserService userService;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recalculateDay(UUID userId, LocalDate date) {
         BigDecimal rate = dayRate(completionService.findByUserAndDate(userId, date));
-        if (!dayService.updateRate(userId, date, rate))
-            log.warn("No PercentageDay for user {} on {}: generator will create it", userId, date);
+
+        if (!dayService.updateRate(userId, date, rate)) {
+            HabitCalendar calendar = calendarService.findFirstByDateOrThrow(date);
+            dayService.save(new PercentageDay(rate, calendar, userService.getUserOrThrow(userId)));
+            log.info("Created missing PercentageDay for user {} on {}", userId, date);
+        }
     }
-
-
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recalculateWeek(UUID userId, LocalDate date) {
@@ -42,8 +43,12 @@ public class PercentageCalculationService {
             return;
         }
 
-        if (!weekService.updateRate(userId, date, weekRate(days)))
-            log.warn("No PercentageWeek for user {} in week of {}", userId, date);
+        BigDecimal rate = weekRate(days);
+        if (!weekService.updateRate(userId, date, rate)) {
+            HabitWeek week = calendarService.findFirstByDateOrThrow(date).getHabitWeek();
+            weekService.save(new PercentageWeek(rate, week, userService.getUserOrThrow(userId)));
+            log.info("Created missing PercentageWeek for user {} in week of {}", userId, date);
+        }
     }
 
     private BigDecimal dayRate(List<HabitCompletion> completions) {

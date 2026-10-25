@@ -53,4 +53,12 @@ public interface HabitDayWeekRepository extends JpaRepository<HabitDayWeek, Long
         join d.habits h
         where d.dayOfWeek = :day and h.isActive = true
         """)
-    List<Habit> findActiveHabitsByDayOfWeek(@Param("day") DayOfWeek day);}
+    List<Habit> findActiveHabitsByDayOfWeek(@Param("day") DayOfWeek day);
+
+    @Query("""
+        SELECT CASE WHEN COUNT(h) > 0 THEN true ELSE false END
+        FROM Habit h JOIN h.habitDayWeeks hdw
+        WHERE h.habitId = :habitId AND hdw.dayOfWeek = :day AND h.isActive = true
+        """)
+    boolean existsActiveHabitByHabitIdAndDayOfWeek(@Param("habitId") UUID habitId, @Param("day") DayOfWeek day);
+}

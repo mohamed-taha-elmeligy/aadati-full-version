@@ -2,6 +2,7 @@ package com.mts.aadati.services;
 
 import com.mts.aadati.dto.request.HabitCompletionRequest;
 import com.mts.aadati.dto.response.PageModel;
+import com.mts.aadati.engine.app.generate.triggers.bridges.CompletionChanged;
 import com.mts.aadati.entities.HabitCompletion;
 import com.mts.aadati.exceptions.exception.DuplicateResourceException;
 import com.mts.aadati.exceptions.exception.InvalidRequestException;
@@ -10,6 +11,7 @@ import com.mts.aadati.repository.HabitCompletionRepository;
 import com.mts.aadati.utils.pagination.PageableUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +40,8 @@ public class HabitCompletionService {
 
     private final HabitCompletionRepository repository;
 
+    private final ApplicationEventPublisher eventPublisher;
+
     @Transactional
     public HabitCompletion updateHabitCompletion(UUID userId, HabitCompletionRequest request) {
         HabitCompletion completion = getCompletionOrThrow(request.habitCompletionId());
@@ -50,7 +54,14 @@ public class HabitCompletionService {
 
         completion.setComplete(request.complete());
 
-        return repository.save(completion);
+        HabitCompletion saved = repository.save(completion);
+
+        eventPublisher.publishEvent(new CompletionChanged(
+                saved.getHabit().getUser().getUserId(),
+                saved.getHabitCalendar().getDate()
+        ));
+
+        return saved;
     }
 
     @Transactional
@@ -261,5 +272,13 @@ public class HabitCompletionService {
     public void addAll(List<HabitCompletion> completions) {
         if (completions.isEmpty()) return;
         repository.saveAll(completions);
+    }
+
+    public boolean existsByHabitAndCalendar(UUID habitId, UUID habitCalendarId) {
+        return repository.existsByHabit_HabitIdAndHabitCalendar_HabitCalendarId(habitId, habitCalendarId);
+    }
+
+    public HabitCompletion create(HabitCompletion completion) {
+        return repository.save(completion);
     }
 }

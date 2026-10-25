@@ -130,7 +130,7 @@ public class RoleService {
         return repository.countByIsDeletedFalse();
     }
 
-    private Role getRoleOrThrow(UUID roleId)
+    Role getRoleOrThrow(UUID roleId)
     {
         if (roleId == null)
             throw new InvalidRequestException("Role Id " + CAN_NOT_BE_NULL);

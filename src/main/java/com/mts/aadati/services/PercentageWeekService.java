@@ -285,6 +285,11 @@ public class PercentageWeekService {
         repository.saveAll(weeks);
     }
 
+    public void save(PercentageWeek weeks) {
+        if (weeks == null) return;
+        repository.save(weeks);
+    }
+
     @Transactional
     @Caching(evict = {
             @CacheEvict(value = CacheNames.PERCENTAGE_WEEK, allEntries = true),

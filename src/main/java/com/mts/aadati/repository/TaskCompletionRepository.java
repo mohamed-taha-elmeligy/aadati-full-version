@@ -83,7 +83,6 @@ public interface TaskCompletionRepository extends JpaRepository<TaskCompletion, 
     @Query("DELETE FROM TaskCompletion tc WHERE tc.createdAt < :cutoffDate")
     int deleteAllByCreatedAtBefore(@Param("cutoffDate") Instant cutoffDate);
 
-    boolean existsByHabitTaskAndHabitCalendar(HabitTask habitTask, HabitCalendar habitCalendar);
     boolean existsByHabitTask_User_UserIdAndAndTaskCompletionIdNot(
             UUID userId, UUID taskCompletionId);
 
@@ -98,4 +97,5 @@ public interface TaskCompletionRepository extends JpaRepository<TaskCompletion, 
     """)
     List<Object[]> findHabitTaskIdAndDateBetween(@Param("start") LocalDate start, @Param("end") LocalDate end);
 
+    boolean existsByHabitTask_HabitTaskIdAndHabitCalendar_HabitCalendarId(UUID habitTaskId, UUID habitCalendarId);
 }

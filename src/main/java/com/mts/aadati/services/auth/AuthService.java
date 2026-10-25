@@ -32,7 +32,7 @@ public class AuthService {
     @Transactional
     public UserResponse register(UserRequest request) {
         return userMapper.toResponse(
-                userService.addUser(
+                userService.registerUser(
                         userMapper.toEntity(request)
                 )
         );

@@ -87,4 +87,11 @@ public class HabitDayWeekService {
         return repository.countHabitsByDayOfWeekAndUserIdAndIsActiveTrue(day, userId);
     }
 
+    public boolean existsActiveHabitByHabitIdAndDayOfWeek(UUID habitId, DayOfWeek day) {
+        if (habitId == null)
+            throw new InvalidRequestException("Habit Id " + CAN_NOT_BE_NULL);
+        if (day == null)
+            throw new InvalidRequestException("DayOfWeek " + CAN_NOT_BE_NULL);
+        return repository.existsActiveHabitByHabitIdAndDayOfWeek(habitId, day);
+    }
 }

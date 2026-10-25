@@ -4,6 +4,7 @@ import com.mts.aadati.configs.caching.CacheNames;
 import com.mts.aadati.dto.mapper.HabitMapper;
 import com.mts.aadati.dto.request.HabitRequest;
 import com.mts.aadati.dto.response.PageModel;
+import com.mts.aadati.engine.app.generate.triggers.bridges.HabitCreated;
 import com.mts.aadati.entities.Habit;
 import com.mts.aadati.entities.HabitCategory;
 import com.mts.aadati.entities.HabitDayWeek;
@@ -18,6 +19,7 @@ import com.mts.aadati.repository.UserRepository;
 import com.mts.aadati.utils.pagination.PageableUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.*;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -45,6 +47,8 @@ public class HabitService {
     private final HabitCategoryRepository categoryRepository;
     private final UserRepository userRepository;
 
+    private final ApplicationEventPublisher eventPublisher;
+
     @Transactional
     @Caching(
             evict = {
@@ -68,7 +72,9 @@ public class HabitService {
 
         Habit habit = mapper.toEntity(request,user,category,days);
 
-        return repository.save(habit);
+        Habit saved = repository.save(habit);
+        eventPublisher.publishEvent(new HabitCreated(saved.getHabitId()));
+        return saved;
     }
 
     @Transactional
@@ -261,6 +267,14 @@ public class HabitService {
             throw new InvalidRequestException("User Id " + CAN_NOT_BE_NULL);
 
         return repository.findByHabitIdAndUser_UserId(habitId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException(HABIT_NOT_FOUND + "id"));
+    }
+
+    public Habit getHabitOrThrow(UUID habitId) {
+        if (habitId == null)
+            throw new InvalidRequestException("Habit Id " + CAN_NOT_BE_NULL);
+
+        return repository.findById(habitId)
                 .orElseThrow(() -> new ResourceNotFoundException(HABIT_NOT_FOUND + "id"));
     }
 

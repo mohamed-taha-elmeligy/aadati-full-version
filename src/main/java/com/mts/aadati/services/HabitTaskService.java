@@ -4,6 +4,7 @@ import com.mts.aadati.configs.caching.CacheNames;
 import com.mts.aadati.dto.mapper.HabitTaskMapper;
 import com.mts.aadati.dto.request.HabitTaskRequest;
 import com.mts.aadati.dto.response.PageModel;
+import com.mts.aadati.engine.app.generate.triggers.bridges.HabitTaskCreated;
 import com.mts.aadati.entities.*;
 import com.mts.aadati.enums.RecurrenceType;
 import com.mts.aadati.exceptions.exception.DuplicateResourceException;
@@ -13,6 +14,7 @@ import com.mts.aadati.repository.*;
 import com.mts.aadati.utils.pagination.PageableUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.*;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -42,6 +44,8 @@ public class HabitTaskService {
     private final TaskPriorityLevelRepository priorityLevelRepository;
     private final UserRepository userRepository;
 
+    private final ApplicationEventPublisher eventPublisher;
+
     @Transactional
     @Caching(
             evict = {
@@ -64,8 +68,9 @@ public class HabitTaskService {
         TaskPriorityLevel priorityLevel = priorityLevelRepository.getReferenceById(request.taskPriorityLevelId());
 
         HabitTask habitTask = mapper.toEntity(request, user, priorityLevel, category);
-
-        return repository.save(habitTask);
+        HabitTask saved = repository.save(habitTask);
+        eventPublisher.publishEvent(new HabitTaskCreated(saved.getHabitTaskId()));
+        return saved;
     }
 
 
@@ -260,5 +265,10 @@ public class HabitTaskService {
 
     public List<HabitTask> findAllActive() {
         return repository.findAllByIsActiveTrue();
+    }
+
+    public HabitTask getHabitTaskOrThrow(UUID habitTaskId) {
+        return repository.findById(habitTaskId)
+                .orElseThrow(() -> new ResourceNotFoundException("HabitTask not found: " + habitTaskId));
     }
 }
