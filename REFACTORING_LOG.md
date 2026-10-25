@@ -1050,3 +1050,276 @@ This file documents every significant change made during refactoring: what the p
 * `getHabitOrThrow(habitId, userId)` (used by `updateHabit`, `deleteHabit`, `toggleActive`, `findByIdAndUser`) confirmed to scope by both ids together — no separate IDOR gap on the rest of the service's mutation/read paths.
 
 ---
+
+## [`HabitTaskService` — Update Path Was Silently Dropping Category/Priority-Level Changes; Create Path Given the Same Validation Rigor as `HabitService`]
+
+### **Problem:**
+
+* `updateHabitTask(habitTaskId, userId, request)` called `mapper.update(request, habitTask)` — a two-argument call with no resolved `HabitCategory`/`TaskPriorityLevel` reference passed in at all, despite `HabitTask` holding those as object associations (not raw ids). Unlike `HabitService.updateHabit`, which already re-resolves `category` on every update, this meant a client changing `habitCategoryId`/`taskPriorityLevelId` through the update endpoint had no verified path by which that change actually reached the entity — and critically, **no active/soft-delete check ran on either id during update at all**, even though `addHabitTask` (reviewed and fixed earlier the same pass) already enforced both.
+* This made `addHabitTask` and `updateHabitTask` inconsistent with each other on the same entity — create validated category/priority-level existence and active state, update didn't validate either.
+
+### **Decision:**
+
+* `updateHabitTask` now runs the same two guards `addHabitTask` does, before touching the entity: `categoryRepository.existsByHabitCategoryIdAndIsDeletedFalse(request.habitCategoryId())` and `priorityLevelRepository.existsByTaskPriorityLevelIdAndIsDeletedFalse(request.taskPriorityLevelId())`, confirmed `TaskPriorityLevel` carries the same `isDeleted` flag `HabitCategory` does.
+* Both are then resolved via `getReferenceById(...)` (not `findById`) and passed explicitly into `mapper.update(request, priorityLevel, category, habitTask)`, matching `addHabitTask`'s `mapper.toEntity(request, user, priorityLevel, category)` call shape.
+* `addHabitTask` itself updated to the same `getReferenceById`-after-`exists`-check pattern as `HabitService.addHabit`, for `User`, `HabitCategory`, and `TaskPriorityLevel`.
+* **Confirmed, not changed:** `HabitTaskRequest.habitDayWeekIds` deliberately carries no `@NotEmpty`/`@NotNull` constraint, unlike `HabitRequest.habitDayWeekIds` (which does). Clarified with the project owner that, for a `HabitTask`, whether specific days are required depends on its `RecurrenceType` and is resolved by the still-to-be-built orchestration Engine against the task's `startDate`, not a plain per-field bean-validation invariant — forcing `@NotEmpty` here would incorrectly reject valid non-weekly-recurrence task shapes.
+
+### **Why:**
+
+* A `@MappingTarget`-based MapStruct `update()` can only write the associations it's actually given as parameters — a call missing `category`/`priorityLevel` arguments cannot correctly update those fields on the target entity no matter what the method body does, making the omission a functional gap, not a style issue.
+* Keeping `getReferenceById(...)` paired with a preceding `exists...IsDeletedFalse` check on every path that touches a soft-deletable catalog association (`HabitCategory`, `TaskPriorityLevel`) is the same trade-off already adopted for `HabitService`: the check gives a clean, immediate `ResourceNotFoundException` for an invalid/inactive id, and the reference avoids a wasted full-entity fetch once that's confirmed.
+  **Source:** [Spring Data JPA Reference — `JpaRepository.getReferenceById`](https://docs.spring.io/spring-data/jpa/reference/jpa/query-methods.html)
+
+### **Impact:**
+
+* `updateHabitTask` can no longer silently ignore a category/priority-level change, and can no longer re-attach a `HabitTask` to a category or priority level that's been soft-deleted since the task was created.
+* `addHabitTask`/`updateHabitTask` are now symmetric in validation strength, closing the gap this entry opened with.
+* Established as a reusable, named pattern (see `ENGINEERING_RULES.md` §4): any FK write path to a soft-deletable catalog association must pair an `existsBy...IsDeletedFalse` guard with a `getReferenceById` resolve, on both create *and* update — not just create.
+
+---
+
+## [Split `application.properties` Into Base/Dev/Prod Profiles]
+
+### **Problem:**
+
+* A single `application.properties` was doing double duty as both the dev and the (eventual) prod config, with the PostgreSQL datasource block manually commented out and H2 left active — switching environments meant hand-editing comments in a shared file, an easy way to accidentally ship with H2 active or forget to re-enable it.
+* `logging.level.org.hibernate.type.descriptor.sql.BasicBinder=TRACE` and `logging.level.org.hibernate.SQL=DEBUG` were unconditionally active in that one file — `BasicBinder=TRACE` in particular logs the actual bound SQL parameter values, which can include passwords, tokens, and other sensitive data, and had no profile gate keeping it out of a production run.
+* `logging.level.com.mts.Aadati=DEBUG` was dead on arrival: the project's actual base package is lowercase `com.mts.aadati`, and Logback's logger-name matching is case-sensitive, so this line matched no real logger and the app's own code was silently never at DEBUG level despite the config implying it was.
+* Several secret-bearing properties (`spring.data.redis.password`, `spring.mail.username`, `spring.mail.password`) used an empty-string fallback (`${VAR:}`) — a missing env var would silently connect with no credential instead of failing startup.
+
+### **Decision:**
+
+* Split into three files: `application.properties` (profile-agnostic — app name, port, shared JPA/Flyway/Redis-pool/mail-transport/JWT/CORS/encryption settings, plus `spring.profiles.active=${SPRING_PROFILES_ACTIVE:dev}` so an unconfigured local run still defaults to `dev`), `application-dev.properties` (H2, H2 console, verbose/TRACE logging — acceptable here since the data is disposable and in-memory), and `application-prod.properties` (PostgreSQL, quiet `INFO`/`WARN` logging with no bind-parameter logging, and no default on any secret-bearing property).
+* Fixed the dead logging category to `com.mts.aadati` (lowercase) in the dev profile.
+* Removed the empty-string fallback on Redis/mail credentials in `application-prod.properties` specifically — a missing env var now fails prod startup; the dev profile keeps the permissive empty defaults since there's no real credential or real data at risk locally.
+* Activating prod requires setting `SPRING_PROFILES_ACTIVE=prod` as an environment variable at deploy time; no code change needed to switch environments going forward.
+
+### **Why:**
+
+* Spring Boot's profile-specific property files (`application-{profile}.properties`) are the standard mechanism for environment-specific config, loaded on top of the base file with profile values taking precedence — this removes the need to hand-edit comments to switch datasources.
+  **Source:** [Spring Boot Reference — Profile Specific Properties](https://docs.spring.io/spring-boot/reference/features/external-config.html#features.external-config.files.profile-specific)
+* Logging bound SQL parameter values at any verbosity in a shared/default config risks writing sensitive data (passwords, tokens) to log output in any environment that config happens to run in, including production if the profile split didn't exist yet — gating it to `dev` only removes that risk entirely rather than relying on remembering to turn it off later.
+* A secret-bearing property with a silent fallback (empty string or a guessable default) fails open — the app keeps running in a broken or insecure state instead of refusing to start, which is strictly worse than a loud, immediate startup failure that points directly at the missing env var.
+
+### **Impact:**
+
+* Switching between dev and prod is now a single environment variable (`SPRING_PROFILES_ACTIVE`), not a manual edit of `application.properties`.
+* `BasicBinder=TRACE`/`hibernate.SQL=DEBUG` can no longer run in prod by accident — they only exist in `application-dev.properties`.
+* The app's own DEBUG logging (`com.mts.aadati`) is now actually active in dev, where previously the miscapitalized category meant it silently wasn't.
+* `application-prod.properties` now fails fast on any missing secret (datasource, Redis, mail, JWT, admin password, CORS origin) instead of running with an empty or default value.
+* Still open: `.env`/secret files still need to be confirmed present in `.gitignore` (separate backlog item), and `spring.flyway.locations=classpath:/db/migration/prod` in the prod profile is a placeholder — needs confirming against whatever the real prod migration folder is actually named before first prod deploy.
+
+---
+
+## [Rebuilt Reference-Data Seeding as a `Seeder` Interface + 4 Implementations, Replacing the Commented-Out `initialization()` Method]
+
+### **Problem:**
+
+* The pre-Engine `initialization()` method (a single class with an `AtomicBoolean isFirstRun` guard calling `addRolesToDB()`, `addAllTaskPriorityLevelToDB()`, `addCategoryToDB()`, `addDayOfWeekToDB()`, `addUserToDB()` in sequence) had been entirely commented out, leaving the project with no working mechanism to seed `Role`, `TaskPriorityLevel`, `HabitCategory`, or the default admin `User` at all.
+* The old method mixed five unrelated seeding responsibilities into one class, with idempotency resting entirely on an in-memory `AtomicBoolean` — which resets on every JVM restart and says nothing about whether the data is actually already in the database, so re-enabling it as-is risked duplicate inserts (or relying on undocumented upsert behavior inside the bulk service calls) on a second startup.
+* Separately, `addUserToDB()` built the admin `User` with `.password(adminPassword)` — the raw value from `${APP_ADMIN_PASSWORD}` — with no `PasswordEncoder.encode(...)` call anywhere in the method, meaning the admin password would have been persisted in plaintext.
+* `HabitDayWeek` seeding doesn't belong in this group at all: Section 12 of `REFACTORING_BACKLOG.md` already established that `HabitDayWeek` is immutable (no soft-delete), unlike `Role`/`TaskPriorityLevel`/`HabitCategory`, which are all confirmed soft-deletable/admin-editable catalogs.
+
+### **Decision:**
+
+* Introduced a `Seeder` interface (`void seed()`) and four `@Component` implementations — `RoleSeeder`, `TaskPriorityLevelSeeder`, `HabitCategorySeeder`, `AdminUserSeeder` — each independently idempotent and each owning exactly one entity type's default data.
+* `RoleSeeder`/`TaskPriorityLevelSeeder`/`HabitCategorySeeder` guard with `repository.count() > 0` before calling their respective existing bulk-insert service methods (`addOrUpdateRoleList`, `addAllTaskPriorityLevelEntity`, `addEntityAllHabitCategory`) — safe because these are small, closed catalog tables nothing else bulk-writes into.
+* `AdminUserSeeder` guards with `userRepository.existsByUsername(adminUsername)` instead of a `count()` check, since the `users` table also fills with real registered users — a blanket count would stay positive forever regardless of whether the admin account specifically exists.
+* `AdminUserSeeder` now calls `passwordEncoder.encode(adminPassword)` before building the `User`, fixing the plaintext-password gap. Preserved the original behavior of attaching every non-deleted role (not just `ROLE_ADMIN`) to the admin account, flagged in `REFACTORING_BACKLOG.md` as worth reconsidering rather than silently changed.
+* Added `ReferenceDataInitializer implements ApplicationRunner`, which collects all `Seeder` beans via an injected `List<Seeder>` and runs them sorted by an added `int order()` method on the interface (`RoleSeeder`=10, `TaskPriorityLevelSeeder`=20, `HabitCategorySeeder`=30, `AdminUserSeeder`=40) — gives the same deterministic ordering an explicit hardcoded sequence would (`RoleSeeder` before `AdminUserSeeder`, since the admin user's roles must already exist), while staying open for extension: a future fifth seeder just needs to exist as a `@Component implements Seeder` with its own `order()` value, with no change needed to `ReferenceDataInitializer` itself. Each `seed()` call is wrapped in a try/catch that logs and re-throws on failure, so a broken seeder fails application startup outright rather than leaving the database partially seeded.
+* `HabitDayWeek` is deliberately excluded from this group — it's seeded by a Flyway migration (guarantees existence from schema-apply time) and kept healthy by a separate daily `ReferenceDataIntegrityJob` (not yet implemented), since unlike the four `Seeder`s here, losing a `HabitDayWeek` row is always a bug, never a legitimate admin action.
+
+### **Why:**
+
+* Each `Seeder` owning one entity type keeps the seeding logic testable in isolation and mirrors the single-responsibility shape already established for the Engine's `Generator<T>` implementations, rather than one growing class doing five unrelated things.
+* A database-backed existence check (`count()`/`existsByUsername`) is correct across JVM restarts in a way an in-memory flag never can be — the actual source of truth for "has this been seeded" is the database, not an `AtomicBoolean` that forgets on every redeploy.
+* Storing a password without encoding it violates the most basic expectation of credential storage and was already the subject of this project's broader JWT/secrets security pass — a default admin account is exactly the kind of credential an attacker would try first.
+  **Source:** [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)
+
+### **Impact:**
+
+* The app can now seed its own required reference data (roles, priority levels, categories, admin account) from a clean database on first startup, and safely no-ops on every subsequent startup instead of either doing nothing (fully commented out) or risking duplicate inserts.
+* The admin account's password is now stored hashed like every other user's, closing a real plaintext-credential gap that existed in the pre-Engine code.
+* `HabitDayWeek`'s `ReferenceDataIntegrityJob` (daily self-healing job, separate from this seeding group) remains the one open item from this decision — tracked in `REFACTORING_BACKLOG.md` §12.
+
+---
+
+## [`ReferenceDataIntegrityJob` — Fixed a Mutable Static Field and a Broken Existence Check]
+
+### **Problem:**
+
+* The first draft of `ReferenceDataIntegrityJob` (the daily Engine `Job` that re-verifies the 7 `HabitDayWeek` rows and recreates any missing ones) declared `private static final Set<HabitDayWeek> habitDayWeeks = new HashSet<>();` as a field on the class. Since the job is a `@Component` singleton and `execute()` runs on every scheduled trigger, this set was never cleared between runs — every execution called `addAll(...)` into the same long-lived set, accumulating indefinitely and violating the project's standing rule against mutable fields on Spring singletons.
+* The missing-row check, `existingSet.contains(new HabitDayWeek(day))`, silently never matched anything. `HabitDayWeek` has no `equals()`/`hashCode()` override (only Lombok `@Getter`), so `Set.contains()` fell back to default identity equality — a freshly-constructed `HabitDayWeek` instance is never `.equals()` to a different `HabitDayWeek` instance loaded from the database, even with identical field values. The practical effect: the job would have concluded *all 7* rows were "missing" on *every* run, and attempted to re-insert all of them daily.
+
+### **Decision:**
+
+* Replaced the `static` field with a local variable built fresh inside `execute()` on every invocation.
+* Changed the existence check to compare on the plain `DayOfWeek` enum values rather than full `HabitDayWeek` entity equality: map the existing rows to `Set<DayOfWeek>` via `.getDayOfWeek()`, then check `existingDays.contains(day)` for each of the 7 `DayOfWeek` values. `DayOfWeek` is a Java enum, so its built-in `equals()` is correct and safe to rely on without any custom override.
+
+### **Why:**
+
+* A field on a singleton bean is shared across every invocation of every method on that bean for the lifetime of the application — any mutable state stored there either needs to be deliberately long-lived and thread-safe, or (as here) it needs to not exist as a field at all. A value that's only meant to represent "the current run's snapshot of existing rows" belongs entirely inside the method that uses it.
+* Relying on default `Object.equals()`/`hashCode()` for a `Set` membership check only works when the exact same object reference is being tested, which defeats the purpose of a "does an equivalent row already exist" check against entities loaded from a separate query. Comparing on a plain enum value sidesteps the missing `equals()`/`hashCode()` on the entity entirely, rather than requiring an entity-wide equality contract to be added just for this one check.
+
+### **Impact:**
+
+* `ReferenceDataIntegrityJob` no longer leaks memory across runs via an ever-growing static `Set`.
+* The job now correctly identifies genuinely missing `HabitDayWeek` rows and leaves existing ones alone, instead of attempting to re-insert all 7 rows on every single daily run (which would previously have hit the fixed-id primary key on every row, every day).
+* Confirmed working by the project owner after the fix.
+
+---
+
+## [Engine — Same-Day Visibility Gap: `JobTrigger`-via-`Engine.run(Job)` Rejected in Favor of a Fully Independent `CompletionProvisioner`/`ProvisioningTrigger`]
+
+### **Problem:**
+
+* `PercentageCalculationService.recalculateDay`/`recalculateWeek` only `update` the `PercentageDay`/`PercentageWeek` row — they never create one. If a `CompletionChanged` event fires for a user/date whose skeleton row doesn't exist yet (e.g. a brand-new user completes a habit the same day they registered, before the nightly `Generator` cron has created their rows), `updateRate` returns `false`, the real computed rate is only logged and dropped, and the row the `Generator` eventually creates is zero-valued with no later event to ever correct it.
+* The same gap applies more broadly: `Generator.before()` resumes from a date **cursor**, by design — a cheap "where did we leave off" query, never a "scan for anything missing" check (which would mean comparing the full user×date space on every run, defeating the entire point of the cursor). This means a `Generator` can never see "today, right now" for a `User`/`Habit`/`HabitTask` created after its cron already ran today for any entity type — `PercentageDay`/`PercentageWeek`, `TaskCompletion`, and `HabitCompletion` skeleton rows are all affected the same way.
+
+### **Decision:**
+
+* An initial design routed the fix through the Engine: a `JobTrigger` component would let event listeners call a new `Engine.run(Job job)` to run one `Generator`'s full batch logic on demand instead of waiting for its cron. **This was reconsidered and rejected** once drafted out in detail — it would re-run an entire `Generator`'s logic for every user just to fix one user's gap, which is wasteful compared to fixing exactly the one entity that needs it.
+* **Final design: two new classes, fully independent of `JobRegistry`/`Engine`/`JobScheduler`.**
+  * `CompletionProvisioner` (`@Service`) — single source of truth for "make sure this one entity's row(s) exist and are correct, right now": `ensureForUser(user, date)`, `ensureForHabit(habit, date)`, `ensureForTask(task, date)`. `ensureForUser`/`ensureForHabit` call the now-upsert-capable `recalculateDay`/`recalculateWeek` (no separate "create with rate=0" path needed); `ensureForHabit` creates the `HabitCompletion` skeleton **before** calling recalculation, in the same method — a new incomplete habit changes today's rate denominator, so the order is encapsulated once at the source instead of relying on every caller to remember both steps in the right sequence. `ensureForTask` only creates its skeleton row — no recalculation, since `TaskCompletion` is confirmed excluded from the percentage.
+  * `ProvisioningTrigger` (`@Component`) — pure dispatch: one `@TransactionalEventListener(phase = AFTER_COMMIT)` + `@Async` method per domain event (`UserRegistered`, `HabitCreated`, `HabitTaskCreated`), each a one-line delegation to `CompletionProvisioner`. Mirrors the already-proven `CompletionListener`/`CompletionChanged` pattern.
+  * Shared-logic rule: the batch `Generator`s and `CompletionProvisioner` must share the same recurrence-matching **predicate** (not the full row-creation code path), so the Generators keep their bulk `saveAll` performance instead of being forced into N individual per-row calls.
+* Separately, the `job_run` cleanup task (plain `@Scheduled`, reaffirmed **not** an Engine `Job` — see earlier entry on this decision) will be structured as a `Cleaner` interface mirroring the existing `Seeder` pattern: one `@Component implements Cleaner` per cleanup concern (`JobRunCleaner`, `HabitCompletionCleaner`), auto-collected as `List<Cleaner>` by a single `MaintenanceScheduler` whose one monthly `@Scheduled` method calls `.clean()` on each, isolated by its own try/catch. Retention for `job_run`: 180 days, matching `HabitCompletion`'s existing retention.
+
+### **Why:**
+
+* Keeping the Engine exclusively cron/periodic — with zero event-driven entry points of its own — keeps its one resilience guarantee ("run the full sorted list on every trigger, `before()` gates the no-op case") simple and uncompromised. Bolting an ad-hoc single-job execution path onto it would have meant reasoning about two different invocation models (full-cycle vs. single-job) sharing one retry/`JobRunStore`-recording implementation, for a problem the Engine's own cursor design was never meant to solve in the first place.
+* A quick `updateRate`-as-upsert fix scoped only to `PercentageCalculationService` was also considered and rejected as too narrow on its own — it would have left `TaskCompletionGenerator`/`HabitCompletionGenerator` with the identical gap, since their row-creation logic (recurrence matching) can't be safely duplicated outside the `Generator` the way a simple numeric upsert can. `CompletionProvisioner` generalizes the fix to every affected entity type while still reusing (not duplicating) each `Generator`'s matching logic via the shared-predicate rule.
+* Keeping the `job_run` cleanup task outside `JobRegistry` (reaffirmed, not reversed, despite the Engine-is-periodic-work framing) protects the one case that actually matters: if `JobRegistry` itself fails at startup, every registered `Job` stops — exactly the moment `job_run` would most need pruning. "The Engine is periodic" doesn't require *every* periodic task in the project to be funneled through it specifically.
+
+### **Impact:**
+
+* Full design committed to `ENGINE_DESIGN_NOTES.md` §5b (new) and §6; `REFACTORING_BACKLOG.md` §12 updated to match. Not yet implemented/compiled — this entry records a settled design decision, not a shipped fix.
+* Closes the open "same-day visibility" question that had been outstanding since `TaskCompletionGenerator`/`HabitCompletionGenerator` were first drafted.
+
+---
+
+## [Cleanup Consolidation — Scope Corrected from `job_run` to Six Pre-Existing Domain `cleanupOldXxx()` Methods]
+
+### **Problem:**
+
+* The `Cleaner`/`MaintenanceScheduler` design from the previous entry was built around `job_run` cleanup specifically. An IDE-wide search (shared via screenshot) revealed six `cleanupOldXxx()` methods **already written** in the codebase, none wired to run automatically: `HabitCalendarService.cleanupOldCalendars()`, `HabitWeekService.cleanupOldWeeks()`, `TaskCompletionService.cleanupOldCompletions()`, `HabitCompletionService.cleanupOldHabitCompletions()`, `PercentageDayService.cleanupOldPercentageDays()`, `PercentageWeekService.cleanupOldPercentageWeeks()`. The `Cleaner` consolidation actually needed to target these six, not `job_run` (which remains a separate, later effort).
+* Two of the six (`cleanupOldCalendars`, `cleanupOldWeeks`) already had an open, previously-logged FK-safety question: whether deleting an old `HabitCalendar`/`HabitWeek` row could violate a foreign key still held by a surviving child row (`HabitCompletion`, `TaskCompletion`, `PercentageDay`, `PercentageWeek`), since the actual DDL constraint enforcement hadn't been confirmed.
+
+### **Decision:**
+
+* `job_run` cleanup stays deferred and separate, as already decided (plain `@Scheduled`, not an Engine `Job`) — when eventually built, it slots into the same orchestrator later as a seventh `Cleaner` implementation, no orchestrator change required.
+* `Cleaner` interface gains an explicit `order()` (mirroring `Seeder`'s own `order()`): `int order(); void clean();`.
+* Six implementations, each a thin `@Component implements Cleaner` delegating straight to its service's existing method (retention cutoffs stay each service's own internal decision — not re-specified by the orchestrator): `TaskCompletionCleaner`/`HabitCompletionCleaner`/`PercentageDayCleaner` at `order()=1` (leaf entities), `PercentageWeekCleaner` at `order()=2`, `HabitCalendarCleaner` at `order()=3`, `HabitWeekCleaner` at `order()=4` (root of the dependency chain, runs last) — children always clean before the parents they reference.
+* `MaintenanceScheduler` (`@Component`) auto-collects `List<Cleaner>` (same mechanism `ReferenceDataInitializer` uses for `List<Seeder>`), sorts by `order()`, and calls `.clean()` on each inside its own try/catch so one failing cleaner can't block the rest.
+
+### **Why:**
+
+* Explicit `order()` resolves the practical FK-violation risk for `cleanupOldCalendars`/`cleanupOldWeeks` without needing to inspect the actual DDL constraints first: since every child entity's retention (180 days) is vastly shorter than its parent's (20 years), and children are guaranteed to run first in the same monthly cycle, a parent old enough to be eligible for deletion will never still have a surviving child row pointing to it. This is a structural guarantee from the ordering + retention gap, not a workaround.
+* Keeping each service's retention cutoff as its own internal decision (not passed in from the orchestrator) matches the shape the methods already have, and keeps the orchestrator a pure dispatcher with zero domain knowledge — consistent with the same reasoning already applied to `Seeder`.
+
+### **Impact:**
+
+* `REFACTORING_BACKLOG.md` §12 and the two affected FK-safety/cleanup-scheduler bullets updated to match; `job_run`'s own bullet is untouched (decision unchanged, just reconfirmed separate from this batch).
+* **Still genuinely open, not resolved by this round:** whether the DB actually enforces the parent→child FK with a real constraint (only matters if retention windows are ever changed independently later) and `HabitWeekService.findHabitCalendarsByWeekId`'s cross-service cache-eviction-ownership gap (unrelated to cleanup ordering).
+* Not yet implemented/compiled — this entry records a settled design decision.
+
+---
+
+## [Cleanup Consolidation, Final Form — the Six Domain Cleanups Become Real Engine `Job`s, FK-Ordering Confirmed Mandatory From the Real Entity Code]
+
+### **Problem:**
+
+* The previous entry's `Cleaner`/`order()`/`MaintenanceScheduler` design was reconsidered once more: it reinvents, as a parallel concept, exactly what `dependsOn()` + `JobRegistry` already do for every other `Job` in the Engine — a hand-rolled `order()` int has no validation (a wrong value fails silently), where `JobRegistry`'s topological sort fails loudly at startup on a cycle or bad id.
+* Separately, the actual entity code for `HabitCompletion`, `TaskCompletion`, `PercentageDay`, `PercentageWeek`, and `HabitCalendar` was reviewed directly, settling the FK-safety question that had been open since the caching-rollout pass: `PercentageDay.habitCalendar` and `PercentageWeek.habitWeek` are real `@ManyToOne(optional = false)` / `@JoinColumn(nullable = false)` foreign keys, with **no cascade** declared on the owning side. `HabitCalendar` **does** declare `cascade = CascadeType.ALL, orphanRemoval = true` toward `HabitCompletion`/`TaskCompletion`, but this turned out to be irrelevant: **all six `cleanupOldXxx()` methods are confirmed (by the project owner) to use bulk `@Modifying @Query("DELETE FROM X WHERE x.createdAt < :cutoff")` deletes**, and a bulk JPQL/SQL delete bypasses the persistence context entirely — JPA cascade annotations have no effect on it. So every one of the six genuinely needs explicit run-ordering; none are "safe by cascade."
+
+### **Decision:**
+
+* Each of the six `cleanupOldXxx()` methods becomes its own `implements Job` (not `Generator<T>` — there's no generation/resume-cursor shape here, just "delete rows older than a cutoff"), wrapped in a thin `@Component` that delegates straight to the existing service method, with `cron() = List.of(Cron.MONTHLY)`.
+* Ordering is expressed via `dependsOn()`, derived directly from the confirmed `NOT NULL` FK columns:
+  ```
+  TaskCompletionCleanupJob / HabitCompletionCleanupJob / PercentageDayCleanupJob / PercentageWeekCleanupJob → dependsOn: []
+  HabitCalendarCleanupJob → dependsOn: [TASK_COMPLETION_CLEANUP, HABIT_COMPLETION_CLEANUP, PERCENTAGE_DAY_CLEANUP]
+  HabitWeekCleanupJob     → dependsOn: [HABIT_CALENDAR_CLEANUP, PERCENTAGE_WEEK_CLEANUP]
+  ```
+* `job_run` cleanup is **not** part of this — it stays a plain `@Scheduled` method, unaffected by this pivot (see the earlier dated entry on that decision; the self-referential risk that justifies it is specific to `job_run` being the Engine's own table, and doesn't apply to these six ordinary domain tables).
+* A separate `CleanRunStore` (considered alongside the original `Cleaner` idea) was dropped — `job_run`/`JobRunStore` already gives these new `Job`s pass/fail/attempt tracking for free, and each method's existing internal `log.info("Cleaned up {} rows...")` already covers the deleted-count detail. No real reporting need was identified to justify a new persisted store.
+* Six new `JobIds` constants added: `HABIT_CALENDAR_CLEANUP`, `TASK_COMPLETION_CLEANUP`, `HABIT_COMPLETION_CLEANUP`, `PERCENTAGE_DAY_CLEANUP`, `HABIT_WEEK_CLEANUP`, `PERCENTAGE_WEEK_CLEANUP`.
+
+### **Why:**
+
+* These six clean ordinary domain tables, not Engine infrastructure — the specific risk that justifies keeping `job_run` cleanup outside the Engine (an Engine-wide failure would block exactly the cleanup `job_run` needs most) doesn't apply here: an Engine outage already stops every other `Generator`, an accepted existing risk, and these six are no different in that respect.
+* Reusing `dependsOn()`/`JobRegistry`/`JobScheduler`/`Engine` instead of parallel hand-rolled concepts (`order()`, a new scheduler, a new run-store) means correctness is enforced by a proven mechanism (fails loudly at startup) instead of a convention that has to be manually gotten right and silently breaks if it isn't.
+* The FK-ordering requirement is not a "nice to have" — it's a guaranteed `DataIntegrityViolationException` on the very first run where a parent cleanup executes before its children, given the confirmed `NOT NULL` FK + bulk-delete-bypasses-cascade combination. `dependsOn()` structurally prevents that ordering from ever happening.
+
+### **Impact:**
+
+* `REFACTORING_BACKLOG.md` §12 and `ENGINE_DESIGN_NOTES.md` §6 updated to match; the FK-safety item that had been open since the caching-rollout pass is now fully resolved and closed.
+* Not yet implemented/compiled — this entry records the final settled design, including the concrete `dependsOn()` graph and `JobIds` constants, ready to write.
+
+---
+
+## [`job_run` Cleanup — Final Shape: a Single Standalone Class, No `Cleaner`-Style Interface]
+
+### **Decision:**
+
+* Confirmed `job_run` cleanup stays a plain `@Scheduled` method (unaffected by the six domain cleanups becoming `Job`s — see the previous entry), and explicitly does **not** get a `Cleaner`-style interface: it's a single, one-off concern with nothing else to abstract over, so an interface would be pure ceremony rather than the open/closed benefit it gives the six domain cleanups (which genuinely share a common shape).
+* Final shape: a new `JobRunStore.deleteRunsOlderThan(Instant cutoff)` method (bulk `@Modifying` delete, same pattern as the six domain cleanups) plus one standalone `JobRunCleanupTask` (`@Component`, no interface) with a single `@Scheduled(cron = "0 0 3 1 * *")` method — 180-day cutoff, calls `deleteRunsOlderThan`, logs the deleted count.
+
+### **Why:**
+
+* An interface earns its keep when there's more than one implementation that benefits from being swapped/collected polymorphically (`Seeder`, the six cleanup `Job`s). A single concern with no sibling doesn't need one — adding it here would be speculative generality with no current payoff.
+
+### **Impact:**
+
+* `REFACTORING_BACKLOG.md` §12 updated with the final concrete class/method names. Noted this is the project's first direct use of Spring's native `@Scheduled` (the six domain cleanups go through the Engine's own `JobScheduler` instead) — needs `@EnableScheduling` confirmed present.
+* Not yet implemented/compiled.
+
+---
+
+## [Role Assignment at Registration + Admin-Only Role Management]
+
+### **Decision:**
+
+* `UserService.addUser`/`registerUser` deduplicated into one shared private `createUser(User user)`, with `registerUser` assigning the default `ROLE_USER` (`roleService.findByName(DEFAULT_ROLE)`) on the in-memory `User` *before* calling `createUser`; `addUser` (admin-facing) assigns no role at creation time at all.
+* Changing a user's roles after creation is **not** part of `addUser`/`registerUser` — it's two new, separate, admin-only methods: `UserService.addRole(UUID userId, UUID roleId)` and `UserService.removeRole(UUID userId, UUID roleId)`, both taking the role by **id**, not by name, for an unambiguous admin-facing API. `addRole` throws `DuplicateResourceException` if the user already has the role (same precedent as `HabitDayWeekService.addDay`); `removeRole` throws `InvalidRequestException` if the user doesn't have the role, or if removing it would leave the user with zero roles (a user must always have at least one).
+* Role comparison in both methods is done by `r.getRoleId().equals(roleId)`, not `List.contains(role)`/`List.remove(role)` — deliberately avoids depending on `Role` having correctly-implemented `equals()`/`hashCode()`.
+* The `UserRegistered` event (needed by the Engine's `CompletionProvisioner`, see `ENGINE_DESIGN_NOTES.md` §5b) is published from the shared `createUser()` — the single point both `addUser` and `registerUser` funnel through — not duplicated in each public method. This also corrects an earlier assumption in `ENGINE_DESIGN_NOTES.md`/`REFACTORING_BACKLOG.md` §12 that the publish site was named `UserService.register()`; the real method is `createUser()` (private, called by `addUser`/`registerUser`).
+
+### **Why:**
+
+* `addUser`/`registerUser` were previously ~95% duplicated code differing only in the role-assignment line — extracting `createUser` removes that duplication without losing the two public entry points' distinct callers (self-registration vs. admin-created).
+* Role changes are deliberately kept out of the creation path and behind dedicated, admin-only methods: this is a least-privilege boundary — no creation-time code path can ever grant an elevated role, only an explicit, separately-authorized admin action can.
+* `addRole`/`removeRole` take a role **id** rather than a name because an admin-facing API operating on a specific row should be unambiguous — a role name could theoretically collide or be renamed, while the id is stable and matches how every other admin/ownership-scoped lookup in this project already works (`habitId`, `habitTaskId`, etc., never by a display name).
+* Comparing by id rather than relying on entity `equals()`/`hashCode()` avoids a latent correctness risk if `Role` ever lacks (or gets an incorrect) identity-based equality implementation — a cheap, defensive choice with no real downside.
+
+### **Impact:**
+
+* **Open, deliberately not resolved in this session:** `addUser` (admin path) now creates a user with **zero roles**, requiring a follow-up `addRole` call before that account can pass any `hasRole()`/`hasAnyRole()` check. Flagged to the user as a possible "roleless user" transient-state window if the admin UI doesn't guarantee an immediate follow-up call in the same flow; left as the user's call whether to accept it or make `addUser` accept role id(s) atomically in the future.
+* **Caching:** per `ENGINEERING_RULES.md` §11's existing standing rule that `hasRole()`/`getRolesByUserId()`-style lookups must never be cached (security-freshness requirement, not an eviction-coverage question), `addRole`/`removeRole` likely require **no** `@CacheEvict` at all for role-checking purposes — provided no separate, non-role-specific `User`-read cache exists that would also need eviction. Not yet confirmed against the real `UserService` cache setup (no `@CacheConfig`/`@Cacheable` source seen on this class yet).
+* Controller methods (admin-only, `POST`/`DELETE` on `.../users/{userId}/roles/{roleId}`) drafted — per `ENGINEERING_RULES.md` §12, authorization is expected to come from `SecurityConfig`'s path-level `hasRole("ADMIN")`, not a duplicate `@PreAuthorize`, since this is a fixed URL-pattern-expressible rule, not a per-resource ownership check.
+* Not yet implemented/compiled; real `UserService` cache setup still needs confirming.
+
+---
+
+## [`UserRegistered`/`ensureForUser` Dropped — No Real Same-Day Visibility Need for a Brand-New User]
+
+### **Decision:**
+
+* Removed the `UserRegistered` event entirely: the record, `CompletionProvisioner.ensureForUser(User user, LocalDate date)`, `ProvisioningTrigger.on(UserRegistered e)`, and the `eventPublisher.publishEvent(new UserRegistered(...))` call planned for `UserService.createUser()` (never actually implemented, now never needed).
+* `ProvisioningTrigger` ends up with exactly 3 listener methods: `HabitCreated`, `HabitTaskCreated`, `CompletionChanged`.
+
+### **Why:**
+
+* User-caught: a brand-new registration has no habits and no completions yet, so `ensureForUser`'s call into `recalculateDay`/`recalculateWeek` would only ever hit `dayRate()`'s zero-total branch and persist a meaningless `rate = 0` skeleton row a few hours earlier than the nightly `Generator`s would have anyway.
+* This is categorically different from `HabitCreated`/`HabitTaskCreated`, where the same-day visibility gap is real: a user can act on a just-created habit/task *today* (mark it complete) and genuinely needs that reflected before the next cron run. A fresh registration has no "today's activity" to protect — there's nothing for the cron to be late catching up to.
+* Consistent with `ENGINEERING_RULES.md` §5 ("What NOT to Build") — building a provisioning path for a gap that doesn't actually exist is exactly the speculative complexity that section argues against.
+
+### **Impact:**
+
+* `ENGINE_DESIGN_NOTES.md` §5b and `REFACTORING_BACKLOG.md` §12 updated to remove `UserRegistered`/`ensureForUser` from the design, code listings, and package tree (`triggers.bridges` now holds only `CompletionChanged`, `HabitCreated`, `HabitTaskCreated`).
+* The previous round's "`UserRegistered` publish point closed" backlog note (identifying `UserService.createUser()` as the publish site) is now moot — superseded by this entry, since the event itself no longer exists.
+* No change to `HabitCreated`/`HabitTaskCreated`/`CompletionChanged` or any of their wiring.
+
+---
+
