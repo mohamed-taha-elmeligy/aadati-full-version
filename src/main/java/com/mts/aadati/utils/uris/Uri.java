@@ -1,6 +1,8 @@
 package com.mts.aadati.utils.uris;
 
 public final class Uri {
+    public static final String JOB = "job";
+
     private Uri(){}
 
     public static final String USER = "/user";

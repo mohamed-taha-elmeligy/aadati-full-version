@@ -1,5 +1,7 @@
 package com.mts.aadati.engine.core.domain;
 
+import org.springframework.data.domain.Page;
+
 import java.time.Instant;
 import java.util.Optional;
 
@@ -16,4 +18,7 @@ public interface JobRunStore {
     int markStaleRunsAsFailed();
 
     int deleteRunsOlderThan(Instant cutoff);
+
+    Page<JobRun> findRuns(int pageNumber);
+    Page<JobRun> findRunsByJobId(String jobId, int pageNumber);
 }

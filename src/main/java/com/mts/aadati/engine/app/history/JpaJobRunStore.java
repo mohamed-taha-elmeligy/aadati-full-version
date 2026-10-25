@@ -3,8 +3,10 @@ package com.mts.aadati.engine.app.history;
 import com.mts.aadati.engine.core.domain.JobRun;
 import com.mts.aadati.engine.core.domain.JobRunStore;
 import com.mts.aadati.engine.core.domain.RunStatus;
+import com.mts.aadati.utils.pagination.PageableUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +23,7 @@ public class JpaJobRunStore implements JobRunStore {
 
     private final JobRunRepository repository;
     private final Clock clock;
+    private static final String SORT_STARTED_AT = "startedAt";
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -88,5 +91,17 @@ public class JpaJobRunStore implements JobRunStore {
     @Override
     public int deleteRunsOlderThan(Instant cutoff) {
         return repository.deleteAllByStartedAtBefore(cutoff);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<JobRun> findRuns(int pageNumber) {
+        return repository.findAllByOrderByStartedAtDesc(PageableUtils.pageable(pageNumber, SORT_STARTED_AT));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<JobRun> findRunsByJobId(String jobId, int pageNumber) {
+        return repository.findByJobIdOrderByStartedAtDesc(jobId, PageableUtils.pageable(pageNumber, SORT_STARTED_AT));
     }
 }

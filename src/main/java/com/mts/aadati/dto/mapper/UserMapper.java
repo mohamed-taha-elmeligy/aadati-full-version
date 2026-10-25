@@ -1,6 +1,6 @@
 package com.mts.aadati.dto.mapper;
 
-import com.mts.aadati.entities.Role;
+import com.mts.aadati.dto.request.AdminCreateUserRequest;
 import com.mts.aadati.entities.User;
 import com.mts.aadati.dto.request.UserRequest;
 import com.mts.aadati.dto.response.UserResponse;
@@ -40,10 +40,14 @@ public interface UserMapper {
 
     List<UserResponse> toResponseList(List<User> users);
 
-    default List<String> mapRoles(List<Role> roles) {
-        return roles.stream()
-                .map(Role::getName)
-                .toList();
-    }
+    @Mapping(target = "userId", ignore = true)
+    @Mapping(target = "emailVerified", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "habits", ignore = true)
+    @Mapping(target = "habitTasks", ignore = true)
+    @Mapping(target = "percentageDays", ignore = true)
+    @Mapping(target = "roles", ignore = true)
+    User toEntity(AdminCreateUserRequest request);
 }
 
