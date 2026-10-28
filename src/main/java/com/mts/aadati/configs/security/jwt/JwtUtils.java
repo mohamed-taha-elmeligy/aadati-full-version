@@ -39,7 +39,7 @@ public class JwtUtils {
                 .claims(claims)
                 .id(UUID.randomUUID().toString())
                 .subject(username)
-                .signWith(getSignInKey(),Jwts.SIG.HS512)
+                .signWith(getSignInKey())
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + jwtExpiration))
                 .compact();
