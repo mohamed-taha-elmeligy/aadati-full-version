@@ -36,3 +36,11 @@ build/
 .env
 .env.*
 !.env.example
+
+### Graphify ###
+graphify-out/cache/
+graphify-out/.cloud-cta-shown
+graphify-out/.graphify_root
+graphify-out/.graphify_analysis.json
+graphify-out/.graphify_labels.json
+graphify-out/.graphify_labels.json.sig
