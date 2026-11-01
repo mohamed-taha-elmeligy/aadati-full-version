@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "a8f79d68-13a5-47c3-8b06-fa32e7b2a7ce",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "C:\\Users\\hp\\IdeaProjects\\Aadati\\docs\\architecture\\candidate.json",
+  "output": "C:\\Users\\hp\\IdeaProjects\\Aadati\\docs\\architecture\\aadati-runtime-architecture.html",
+  "specification": {
+    "sha256": "529e3df511643a2a86b3b0ce0962124a0ebf75629c676a501cfb1f0d57c4d9a7",
+    "bytes": 11317
+  },
+  "artifact": {
+    "sha256": "c75de2bc521a2ee232107336a7374d34e3f0315440290eb54f7fe5bff9108f75",
+    "bytes": 867937
+  }
+}

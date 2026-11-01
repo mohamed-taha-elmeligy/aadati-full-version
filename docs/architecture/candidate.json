@@ -1,0 +1,329 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Aadati Runtime Architecture",
+    "locale": "en",
+    "output": "docs/architecture/aadati-runtime-architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/mohamed-taha-elmeligy/aadati-full-version",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "fb8f7296664a5259c3b5ddc7a973ea77bcb5d020"
+    }
+  },
+  "components": [
+    {
+      "id": "clients",
+      "type": "external",
+      "label": "API clients",
+      "sublabel": "REST · Swagger UI",
+      "tag": "HTTPS :8082",
+      "pos": [40, 300],
+      "size": [120, 64],
+      "sources": [
+        { "path": "src/main/java/com/mts/aadati/utils/uris/Uri.java", "line": 8, "end_line": 11 },
+        { "path": "src/main/resources/application.properties", "line": 2, "end_line": 3 }
+      ]
+    },
+    {
+      "id": "security",
+      "type": "security",
+      "label": "Security filters",
+      "sublabel": "rate limit → JWT → roles",
+      "tag": "stateless",
+      "pos": [215, 300],
+      "size": [155, 68],
+      "sources": [
+        { "path": "src/main/java/com/mts/aadati/configs/security/SecurityConfig.java", "line": 50, "end_line": 74 },
+        { "path": "src/main/java/com/mts/aadati/configs/security/jwt/JwtAuthenticationFilter.java", "line": 30, "end_line": 64 },
+        { "path": "src/main/java/com/mts/aadati/configs/ratelimit/RateLimitFilter.java", "line": 47, "end_line": 72 }
+      ]
+    },
+    {
+      "id": "controllers",
+      "type": "backend",
+      "label": "REST controllers",
+      "sublabel": "19 controllers · DTOs",
+      "tag": "/aadati/api",
+      "pos": [425, 300],
+      "size": [165, 68],
+      "sources": [
+        { "path": "src/main/java/com/mts/aadati/controllers/auth/AuthController.java", "line": 19, "end_line": 55 },
+        { "path": "src/main/java/com/mts/aadati/controllers/users/HabitCompletionController.java", "line": 23, "end_line": 45 },
+        { "path": "src/main/java/com/mts/aadati/controllers/admins/JobRunController.java", "line": 13, "end_line": 42 }
+      ]
+    },
+    {
+      "id": "auth",
+      "type": "backend",
+      "label": "AuthService",
+      "sublabel": "login · refresh · logout",
+      "tag": "JWT + blocklist",
+      "pos": [645, 60],
+      "size": [175, 68],
+      "sources": [
+        { "path": "src/main/java/com/mts/aadati/services/auth/AuthService.java", "line": 41, "end_line": 77 },
+        { "path": "src/main/java/com/mts/aadati/configs/security/jwt/JwtUtils.java", "line": 82, "end_line": 96 },
+        { "path": "src/main/java/com/mts/aadati/configs/security/jwt/JwtBlocklistService.java", "line": 16, "end_line": 31 }
+      ]
+    },
+    {
+      "id": "services",
+      "type": "backend",
+      "label": "Domain services",
+      "sublabel": "habit · task · completion",
+      "tag": "cache-aside",
+      "pos": [645, 300],
+      "size": [165, 68],
+      "sources": [
+        { "path": "src/main/java/com/mts/aadati/services/HabitCompletionService.java", "line": 45, "end_line": 65 },
+        { "path": "src/main/java/com/mts/aadati/services/HabitService.java", "line": 81, "end_line": 123 },
+        { "path": "src/main/java/com/mts/aadati/services/PercentageWeekService.java", "line": 40, "end_line": 57 }
+      ]
+    },
+    {
+      "id": "repositories",
+      "type": "backend",
+      "label": "JPA repositories",
+      "sublabel": "13 Spring Data repos",
+      "tag": "Hibernate",
+      "pos": [865, 300],
+      "size": [145, 68],
+      "sources": [
+        { "path": "src/main/java/com/mts/aadati/repository/HabitCompletionRepository.java", "line": 18, "end_line": 45 },
+        { "path": "src/main/java/com/mts/aadati/engine/app/history/JobRunRepository.java", "line": 16, "end_line": 25 },
+        { "path": "pom.xml", "line": 75, "end_line": 79 }
+      ]
+    },
+    {
+      "id": "database",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "H2 in dev profile",
+      "tag": "Flyway · validate",
+      "pos": [1080, 300],
+      "size": [135, 68],
+      "sources": [
+        { "path": "src/main/resources/application-prod.properties", "line": 1, "end_line": 13 },
+        { "path": "src/main/resources/application-dev.properties", "line": 1, "end_line": 15 },
+        { "path": "src/main/resources/db/migration/product/V1_20261012_1014__percentage_day_create.sql", "line": 1, "end_line": 16 }
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": "cache · blocklist · limits",
+      "tag": "Lettuce",
+      "pos": [405, 60],
+      "size": [160, 68],
+      "sources": [
+        { "path": "src/main/java/com/mts/aadati/configs/caching/CachingConfig.java", "line": 30, "end_line": 73 },
+        { "path": "src/main/java/com/mts/aadati/configs/ratelimit/RateLimitConfig.java", "line": 39, "end_line": 54 },
+        { "path": "src/main/java/com/mts/aadati/configs/redis/RedisConfig.java", "line": 12, "end_line": 28 }
+      ]
+    },
+    {
+      "id": "events",
+      "type": "messagebus",
+      "label": "Spring events",
+      "sublabel": "ApplicationEventPublisher",
+      "tag": "4 domain events",
+      "pos": [645, 560],
+      "size": [165, 68],
+      "sources": [
+        { "path": "src/main/java/com/mts/aadati/services/HabitCompletionService.java", "line": 57, "end_line": 62 },
+        { "path": "src/main/java/com/mts/aadati/services/HabitService.java", "line": 111, "end_line": 120 },
+        { "path": "src/main/java/com/mts/aadati/engine/app/generate/triggers/bridges/CompletionChanged.java", "line": 1, "end_line": 9 }
+      ]
+    },
+    {
+      "id": "async-recalc",
+      "type": "backend",
+      "label": "Async recalculation",
+      "sublabel": "provisioner → % day/week",
+      "tag": "AFTER_COMMIT · @Async",
+      "pos": [875, 560],
+      "size": [180, 68],
+      "sources": [
+        { "path": "src/main/java/com/mts/aadati/engine/app/generate/triggers/ProvisioningTrigger.java", "line": 24, "end_line": 55 },
+        { "path": "src/main/java/com/mts/aadati/engine/app/generate/triggers/CompletionProvisioner.java", "line": 28, "end_line": 54 },
+        { "path": "src/main/java/com/mts/aadati/engine/app/generate/triggers/PercentageCalculationService.java", "line": 27, "end_line": 52 }
+      ]
+    },
+    {
+      "id": "engine",
+      "type": "backend",
+      "label": "Engine",
+      "sublabel": "scheduler · registry",
+      "tag": "startup + cron",
+      "pos": [875, 60],
+      "size": [165, 68],
+      "sources": [
+        { "path": "src/main/java/com/mts/aadati/engine/core/job/JobScheduler.java", "line": 29, "end_line": 55 },
+        { "path": "src/main/java/com/mts/aadati/engine/core/Engine.java", "line": 21, "end_line": 47 },
+        { "path": "src/main/java/com/mts/aadati/engine/core/job/JobRegistry.java", "line": 21, "end_line": 34 }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "JWT gate · /aadati/api",
+      "wraps": ["security", "controllers"],
+      "pad": 16
+    },
+    {
+      "kind": "region",
+      "label": "Spring application core",
+      "wraps": ["auth", "services", "events", "async-recalc", "engine", "repositories"],
+      "pad": 16
+    }
+  ],
+  "connections": [
+    {
+      "from": "clients",
+      "to": "security",
+      "label": "JWT",
+      "variant": "emphasis"
+    },
+    {
+      "from": "security",
+      "to": "controllers",
+      "label": "roles",
+      "variant": "emphasis"
+    },
+    {
+      "from": "controllers",
+      "to": "services",
+      "variant": "emphasis"
+    },
+    {
+      "from": "services",
+      "to": "repositories",
+      "label": "JPA"
+    },
+    {
+      "from": "repositories",
+      "to": "database",
+      "label": "SQL",
+      "variant": "emphasis"
+    },
+    {
+      "from": "controllers",
+      "to": "auth",
+      "label": "auth endpoints",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "from": "auth",
+      "to": "services",
+      "label": "UserDetails",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "auth",
+      "to": "redis",
+      "label": "blocklist",
+      "variant": "security",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "from": "security",
+      "to": "redis",
+      "label": "limits · jti",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "services",
+      "to": "redis",
+      "label": "cache-aside",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "services",
+      "to": "events",
+      "label": "publish 4 events",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "events",
+      "to": "async-recalc",
+      "label": "@Async",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "from": "async-recalc",
+      "to": "repositories",
+      "label": "write % rows",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "engine",
+      "to": "services",
+      "label": "jobs",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "from": "engine",
+      "to": "repositories",
+      "label": "job_run",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Request & data path",
+      "items": [
+        "Stateless filter chain: rate limit → JWT → path and role authorization",
+        "Controllers map DTOs and call domain services; services read and write through JPA repositories",
+        "PostgreSQL in prod, H2 under the dev profile; Flyway owns the schema and JPA validates it"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Authentication & authorization",
+      "items": [
+        "Login: AuthenticationManager → CustomUserDetailsService → UserService → database",
+        "Access and refresh JWTs carry a jti; logout stores both jtis in Redis until they expire",
+        "Each authenticated request re-checks the Redis blocklist and reloads user authorities"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Async events & percentages",
+      "items": [
+        "HabitCompletionService publishes CompletionChanged(userId, date) inside the update transaction",
+        "ProvisioningTrigger listens AFTER_COMMIT on an @Async thread, creates missing completion rows, then recalculates",
+        "Day rate = completed habit points / total points; week rate = mean of PercentageDay rates, each in REQUIRES_NEW"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Engine & confidence",
+      "items": [
+        "Startup marks stale job_run rows failed, then runs a full cycle; each cron trigger repeats the full ordered list",
+        "Daily, weekly, yearly generators and monthly cleanup jobs persist RUNNING, SUCCESS, FAILED and SKIPPED history",
+        "Solid edges are direct Java calls or annotations in the cited sources; dashed edges are Spring-event / @Async hand-offs, also traced but without a direct call",
+        "Not drawn, inferred: Redis state is shared across instances, @Async uses Spring's default executor, and SMTP, Actuator and Prometheus are configured but outside the live request or event path"
+      ]
+    }
+  ]
+}
