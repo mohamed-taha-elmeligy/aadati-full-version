@@ -4,9 +4,11 @@ import com.mts.aadati.exceptions.exception.*;
 import jakarta.annotation.Nullable;
 import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -229,6 +231,24 @@ public class GlobalExceptionHandler {
                 request,
                 null
         );
+    }
+
+    @ExceptionHandler(OtpCooldownException.class)
+    public ProblemDetail handleOtpCooldown(OtpCooldownException ex,
+                                           HttpServletRequest request,
+                                           HttpServletResponse response) {
+        long retryAfter = ex.getRetryAfterSeconds();
+        response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(retryAfter));
+
+        ProblemDetail problem = problemDetailBuilder(
+                "Too Many Requests",
+                HttpStatus.TOO_MANY_REQUESTS,
+                "Please wait " + retryAfter + " seconds before requesting another code",
+                request,
+                null
+        );
+        problem.setProperty("retryAfterSeconds", retryAfter);
+        return problem;
     }
 
     private static ProblemDetail problemDetailBuilder(

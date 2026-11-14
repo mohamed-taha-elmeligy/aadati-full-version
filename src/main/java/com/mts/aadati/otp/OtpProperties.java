@@ -16,7 +16,8 @@ public record OtpProperties(
         @NotNull @Valid Hmac hmac,
         @NotNull Duration expiration,
         @Min(1) int maxAttempts,
-        @NotNull Duration failWindow
+        @NotNull Duration failWindow,
+        @NotNull Duration cooldown
 ) {
     public record Hmac(@NotBlank @Size(min = 32) String key) {}
 }
