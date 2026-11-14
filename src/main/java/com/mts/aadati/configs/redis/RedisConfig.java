@@ -33,7 +33,7 @@ public class RedisConfig {
     public DefaultRedisScript<Long>  redisScript(){
         DefaultRedisScript<Long> redisScript = new DefaultRedisScript<>();
 
-        redisScript.setLocation(new ClassPathResource("scripts/compare-and-delete.lua"));
+        redisScript.setLocation(new ClassPathResource("scripts/verify-otp.lua"));
         redisScript.setResultType(Long.class);
 
         return redisScript;
