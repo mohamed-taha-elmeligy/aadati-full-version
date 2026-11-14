@@ -1,5 +1,6 @@
 package com.mts.aadati.otp;
 
+import com.mts.aadati.exceptions.exception.OtpCooldownException;
 import com.mts.aadati.utils.security.HmacUtil;
 import com.mts.aadati.utils.security.SecureRandomUtil;
 import org.springframework.stereotype.Service;
@@ -21,13 +22,17 @@ public class OtpService {
         this.properties = properties;
     }
 
-    public String generate(String value, OtpPurpose purpose) {
+    public GeneratedOtp generate(String value, OtpPurpose purpose) {
         Objects.requireNonNull(purpose, "purpose");
         String normalized = normalize(value);
 
+        if (!otpRepository.tryStartCooldown(normalized, purpose, properties.cooldown())) {
+            throw new OtpCooldownException(otpRepository.cooldownRemainingSeconds(normalized, purpose));
+        }
+
         String otp = SecureRandomUtil.generateOtp();
         otpRepository.save(normalized, hmac(normalized, otp, purpose), properties.expiration(), purpose);
-        return otp;
+        return new GeneratedOtp(otp, properties.expiration().toMinutes());
     }
 
     public OtpVerifyResult verify(String value, String otp, OtpPurpose purpose) {
@@ -42,10 +47,6 @@ public class OtpService {
                 properties.maxAttempts(),
                 properties.failWindow(),
                 purpose);
-    }
-
-    public void clearFailures(String value, OtpPurpose purpose) {
-        otpRepository.clearFailures(normalize(value), purpose);
     }
 
     private static String normalize(String value) {
