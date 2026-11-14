@@ -17,7 +17,7 @@ public class MailEventListener {
         this.mailService = mailService;
     }
 
-    @Async
+    @Async("mailExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onMailEvent(MailEvent event) {
         try {
