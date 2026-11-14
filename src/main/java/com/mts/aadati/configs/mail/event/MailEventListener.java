@@ -19,21 +19,14 @@ public class MailEventListener {
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
-    public void onMailSimpleEvent(MailSimpleEvent event) {
+    public void onMailEvent(MailEvent event) {
         try {
-            mailService.sendSimpleMail(event.to(), event.subject(), event.body());
-        } catch (Exception e) {
-            log.error("Failed to send simple mail", e);
-        }
-    }
-
-    @Async
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
-    public void onMailHtmlEvent(MailHtmlEvent event) {
-        try {
-            mailService.sendHtmlMail(event.to(), event.subject(), event.html());
-        } catch (Exception e) {
-            log.error("Failed to send HTML mail", e);
+            switch (event) {
+                case MailSimpleEvent e -> mailService.sendSimpleMail(e.to(), e.subject(), e.body());
+                case MailHtmlEvent e -> mailService.sendHtmlMail(e.to(), e.subject(), e.html());
+            }
+        } catch (Exception ex) {
+            log.error("Failed to send mail: {}", event.getClass().getSimpleName(), ex);
         }
     }
 }
