@@ -10,6 +10,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.time.Clock;
 import java.time.LocalDate;
 
 import static org.springframework.transaction.event.TransactionPhase.AFTER_COMMIT;
@@ -20,44 +21,47 @@ import static org.springframework.transaction.event.TransactionPhase.AFTER_COMMI
 public class ProvisioningTrigger {
     private final CompletionProvisioner provisioner;
     private final PercentageCalculationService calculation;
+    private final Clock clock;
 
-    @Async
-    @TransactionalEventListener(phase = AFTER_COMMIT)
+
+    @Async("engineEventExecutor")
+    @TransactionalEventListener(phase = AFTER_COMMIT, fallbackExecution = true)
     public void on(HabitCreated e) {
-        safely(() ->
-                provisioner.ensureForHabit(e.habitId(), LocalDate.now())
+        safely("HabitCreated habitId=" + e.habitId(), () ->
+                provisioner.ensureForHabit(e.habitId(), LocalDate.now(clock))
         );
     }
 
-    @Async
-    @TransactionalEventListener(phase = AFTER_COMMIT)
+    @Async("engineEventExecutor")
+    @TransactionalEventListener(phase = AFTER_COMMIT, fallbackExecution = true)
     public void on(HabitTaskCreated e) {
-        safely(() ->
-                provisioner.ensureForTask(e.habitTaskId(), LocalDate.now())
+        safely("HabitTaskCreated habitTaskId=" + e.habitTaskId(), () ->
+                provisioner.ensureForTask(e.habitTaskId(), LocalDate.now(clock))
         );
     }
 
-    @Async
-    @TransactionalEventListener(phase = AFTER_COMMIT)
+    @Async("engineEventExecutor")
+    @TransactionalEventListener(phase = AFTER_COMMIT, fallbackExecution = true)
     public void on(CompletionChanged e) {
-        safely(()->{
+        safely("CompletionChanged userId=" + e.userId() + " date=" + e.date(), () -> {
             calculation.recalculateDay(e.userId(), e.date());
             calculation.recalculateWeek(e.userId(), e.date());
         });
     }
 
-    @Async
-    @TransactionalEventListener(phase = AFTER_COMMIT)
+    @Async("engineEventExecutor")
+    @TransactionalEventListener(phase = AFTER_COMMIT, fallbackExecution = true)
     public void on(HabitPointChanged e) {
-        safely(()->
+        safely("HabitPointChanged " + e, () ->
                 provisioner.onHabitPointChanged(e)
         );
     }
 
-    private void safely(Runnable r) {
-        try { r.run(); }
-        catch (Exception ex) {
-            log.error("Provisioning trigger failed", ex);
+    private void safely(String what, Runnable r) {
+        try {
+            r.run();
+        } catch (Exception ex) {
+            log.error("Provisioning trigger failed: {}", what, ex);
         }
     }
 }
