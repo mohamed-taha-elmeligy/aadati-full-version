@@ -26,12 +26,17 @@ public class OtpService {
         Objects.requireNonNull(purpose, "purpose");
         String normalized = normalize(value);
 
-        if (!otpRepository.tryStartCooldown(normalized, purpose, properties.cooldown())) {
-            throw new OtpCooldownException(otpRepository.cooldownRemainingSeconds(normalized, purpose));
-        }
-
         String otp = SecureRandomUtil.generateOtp();
-        otpRepository.save(normalized, hmac(normalized, otp, purpose), properties.expiration(), purpose);
+        long cooldownLeftMillis = otpRepository.saveWithCooldown(
+                normalized,
+                hmac(normalized, otp, purpose),
+                properties.expiration(),
+                properties.cooldown(),
+                purpose);
+
+        if (cooldownLeftMillis > 0) {
+            throw new OtpCooldownException(toSecondsRoundedUp(cooldownLeftMillis));
+        }
         return new GeneratedOtp(otp, properties.expiration().toMinutes());
     }
 
@@ -47,6 +52,10 @@ public class OtpService {
                 properties.maxAttempts(),
                 properties.failWindow(),
                 purpose);
+    }
+
+    private static long toSecondsRoundedUp(long millis) {
+        return Math.max(1, (millis + 999) / 1000);
     }
 
     private static String normalize(String value) {

@@ -2,10 +2,8 @@ package com.mts.aadati.configs.redis;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.serializer.RedisSerializer;
 
 @Configuration
@@ -27,15 +25,5 @@ public class RedisConfig {
         template.afterPropertiesSet();
 
         return template;
-    }
-
-    @Bean
-    public DefaultRedisScript<Long>  redisScript(){
-        DefaultRedisScript<Long> redisScript = new DefaultRedisScript<>();
-
-        redisScript.setLocation(new ClassPathResource("scripts/verify-otp.lua"));
-        redisScript.setResultType(Long.class);
-
-        return redisScript;
     }
 }
